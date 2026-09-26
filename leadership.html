@@ -1,0 +1,2664 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>Skywalker — Leadership</title>
+<!--
+  THE LEADERSHIP SIDE OF SKYWALKER, and a demonstration of it.
+
+  WHY IT IS A SEPARATE FILE FROM index.html
+  index.html shows PUBLISHED data: encrypted files, rebuilt hourly, the same for every
+  reader of a tier. This page shows LIVE data, and what it shows depends on who is
+  asking - a deputy whip sees their own members and nobody else's. Keeping the two apart
+  means the daily bill-tracking site cannot be broken by work on the leadership screens,
+  and demos can be shown from this file without touching what the office uses.
+
+  NOTHING HERE ENFORCES ANYTHING. Every rule about who may see or change what lives in
+  api_call() in the database (schema/14_api.sql). This page asks and draws the answer.
+  If you are tempted to hide a button to keep someone out, don't - the rule belongs in
+  the database, where a person with a browser console cannot reach it.
+
+  IDENTITY is the access code, exactly as on the main site. The code never leaves the
+  device: what is sent is SHA-256('verify:' + code), which the database recognises and
+  nobody can work backwards from.
+
+  MOBILE FIRST, deliberately: the people who use this are in a chamber or a hallway with
+  a phone, not at a desk. Everything works down to 360px wide; the wide layout is what
+  happens when there is room, not the other way round.
+-->
+<style>
+/* ── ONE LOOK ─────────────────────────────────────────────────────
+   Warm paper, near-black ink, one deep accent, the five position colours kept. Small
+   radii, hairline rules, no shadows, denser rows, larger text. Everything on both
+   screens is drawn from these tokens and nothing hard-codes a colour, so this block is
+   the whole design: change a value here and every screen follows.
+   The three demo looks that used to sit here were for choosing; the choice is made. */
+:root{
+  --bg:#f4efe4;            /* warm paper */
+  --panel:#fffdf7;
+  --ink:#171a21;
+  --muted:#5e5a50;
+  --line:#d9d1bf;          /* hairline */
+  --accent:#7a1c26;        /* oxblood */
+  --accent-soft:#f3e4e2;
+  --yes:#2f6b46; --lean-yes:#6d9a56; --undecided:#8d8676; --lean-no:#c07a2c; --no:#a3323a;
+  --warn:#9a5b0b;
+  --radius:4px;
+  --shadow:none;
+}
+@media (prefers-color-scheme: dark){ :root{
+  --bg:#15171c; --panel:#1c1f26; --ink:#ebe6da; --muted:#a39d8e; --line:#2f333c;
+  --accent:#d0606c; --accent-soft:#2c1d20;
+}}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--bg); color:var(--ink); font:17px/1.4 -apple-system,BlinkMacSystemFont,
+  "Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  -webkit-text-size-adjust:100%;
+}
+[hidden]{display:none !important}
+.wrap{max-width:1280px;margin:0 auto;padding:0 16px 96px}
+
+/* ── top bar ─────────────────────────────────────────────────────── */
+header{
+  position:sticky;top:0;z-index:20;background:var(--panel);
+  border-bottom:1px solid var(--line);
+}
+.bar{max-width:1280px;margin:0 auto;padding:10px 16px;display:flex;align-items:center;gap:12px}
+.brand{font-weight:800;letter-spacing:.14em;font-size:13px}
+.brand small{display:block;font-weight:500;letter-spacing:0;color:var(--muted);font-size:11px}
+.who{margin-left:auto;display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)}
+.chip{
+  background:var(--accent-soft);color:var(--accent);border-radius:999px;
+  padding:4px 10px;font-size:12px;font-weight:700;white-space:nowrap;
+}
+/* Tabs scroll rather than wrap: on a phone five tabs would otherwise take two rows and
+   push the content below the fold. */
+nav{display:flex;gap:6px;overflow-x:auto;padding:0 16px 10px;max-width:1280px;margin:0 auto;
+    scrollbar-width:none}
+nav::-webkit-scrollbar{display:none}
+/* Plain tabs with an underline, not filled pills: four filled pills in a row read as
+   four buttons competing, and the one that matters is whichever you are not on. */
+nav button{
+  flex:0 0 auto;border:0;border-bottom:2px solid transparent;background:none;
+  color:var(--muted);padding:8px 4px;margin-right:18px;font-size:15px;font-weight:600;
+  cursor:pointer;
+}
+nav button[aria-selected="true"]{color:var(--ink)}   /* the underline is nav .ink, which slides */
+nav button:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+
+/* ── panels ──────────────────────────────────────────────────────── */
+.card{
+  background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+  box-shadow:none;padding:12px 14px;margin:10px 0;
+}
+h1{font-size:26px;margin:16px 0 4px;font-family:Georgia,"Times New Roman",serif;
+   font-weight:600;letter-spacing:.01em}
+h2{font-size:17px;margin:0 0 10px;letter-spacing:0;font-weight:700}
+p.sub{color:var(--muted);font-size:14px;margin:0 0 14px}
+label{display:block;font-size:13px;font-weight:700;color:var(--muted);margin:0 0 4px;
+      text-transform:uppercase;letter-spacing:.06em}
+input,select,textarea{
+  width:100%;font:inherit;color:var(--ink);background:var(--panel);
+  border:1px solid var(--line);border-radius:var(--radius);padding:11px 12px;
+}
+button.primary{
+  background:var(--accent);color:#fff;border:0;border-radius:var(--radius);padding:12px 18px;
+  font:inherit;font-weight:700;cursor:pointer;width:100%;
+}
+/* One focus rule for the whole page: an outline that is always visible and always the
+   same is worth more than a dozen bespoke ones. */
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.row{display:flex;gap:10px;flex-wrap:wrap}
+.row > *{flex:1 1 180px}
+.muted{color:var(--muted)}
+.err{color:var(--no);font-size:14px;margin-top:10px;min-height:20px}
+
+/* ── the whip tally bar ──────────────────────────────────────────── */
+.tally{display:flex;height:34px;border-radius:var(--radius);overflow:hidden;margin:2px 0 6px;background:var(--line)}
+.tally span{display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;
+            font-weight:700;min-width:0;transition:flex-grow .3s}
+.tally .s-yes{background:var(--yes)} .tally .s-lean_yes{background:var(--lean-yes)}
+.tally .s-undecided{background:var(--undecided)} .tally .s-lean_no{background:var(--lean-no)}
+.tally .s-no{background:var(--no)}
+.legend{display:flex;gap:12px;flex-wrap:wrap;font-size:13px;color:var(--muted)}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px}
+.count{font-size:28px;font-weight:800;line-height:1}
+.count small{display:block;font-size:13px;font-weight:600;color:var(--muted);
+             text-transform:uppercase;letter-spacing:.06em;margin-top:2px}
+.counts{display:flex;gap:18px;flex-wrap:wrap;margin-bottom:12px}
+
+/* ── member list ─────────────────────────────────────────────────── */
+.member{
+  display:flex;align-items:center;gap:10px;padding:6px 0;min-height:48px;
+  border-top:1px solid var(--line);
+}
+.member:first-child{border-top:0}
+.member .name{flex:1 1 auto;min-width:0;font-weight:600;
+              overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.member .name em{display:block;font-style:normal;font-weight:400;font-size:13px;color:var(--muted)}
+.pos{
+  flex:0 0 auto;display:flex;gap:4px;
+}
+.pos button{
+  width:34px;height:34px;border-radius:var(--radius);border:1px solid var(--line);background:var(--panel);
+  font-size:12px;font-weight:800;color:var(--muted);cursor:pointer;padding:0;
+}
+.pos button[data-on="1"]{color:#fff;border-color:transparent}
+.pos button[data-p="yes"][data-on="1"]{background:var(--yes)}
+.pos button[data-p="lean_yes"][data-on="1"]{background:var(--lean-yes)}
+.pos button[data-p="undecided"][data-on="1"]{background:var(--undecided)}
+.pos button[data-p="lean_no"][data-on="1"]{background:var(--lean-no)}
+.pos button[data-p="no"][data-on="1"]{background:var(--no)}
+/* 44px is the smallest target a thumb hits reliably; these are pressed standing up, in
+   a hallway, by someone who is also holding a piece of paper. */
+.pos button{min-width:44px;height:44px;font-size:15px}
+.pos button:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+@media (min-width:768px){ .pos button{min-width:72px} }
+/* On a phone, five 44px targets and a name do not both fit on one line, and the name
+   was losing: "Anderson" and "Andersen" both rendered as "Ander...". The row wraps
+   instead - full name, then the buttons under it. */
+@media (max-width:480px){
+  .member{flex-wrap:wrap}
+  .member .name{flex:1 1 100%;white-space:normal;margin-bottom:6px}
+  .pos{width:100%;justify-content:space-between}
+  .pos button{flex:1 1 0}
+}
+
+/* the one-line header a bill collapses to once it is open */
+.openbar{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin:14px 0 6px}
+.openbar b{font-size:18px}
+.openbar span{color:var(--muted);flex:1 1 140px;min-width:0;overflow:hidden;
+              text-overflow:ellipsis;white-space:nowrap}
+.openbar button{border:0;background:none;color:var(--accent);font:inherit;font-size:14px;
+                cursor:pointer;text-decoration:underline;padding:0}
+
+/* group headings inside the member list */
+.grouphead{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;
+           color:var(--muted);padding:12px 0 4px;border-top:1px solid var(--line)}
+.member .name{cursor:pointer}
+.drawer{padding:10px 0 14px;border-top:1px dashed var(--line)}
+.drawer .row{gap:8px;margin-bottom:8px}
+.drawer label{margin-top:6px}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chips button{border:1px solid var(--line);background:var(--panel);color:var(--muted);
+              border-radius:999px;padding:7px 14px;font:inherit;font-size:14px;cursor:pointer;
+              min-height:40px}
+.chips button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#fff}
+.hist{font-size:13px;color:var(--muted);margin-top:8px}
+.hist div{padding:3px 0}
+
+/* ── the bill page ────────────────────────────────────────────────── */
+.backlink{display:inline-block;margin:16px 0 0;color:var(--accent);text-decoration:none;
+          font-size:15px}
+.bill-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.bill-head h1{margin:10px 0 2px}
+.bill-head .star{border:0;background:none;cursor:pointer;font-size:22px;color:var(--muted)}
+.facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px 18px}
+.facts small{display:block;font-size:11px;font-weight:700;text-transform:uppercase;
+             letter-spacing:.06em;color:var(--muted)}
+.factv{font-size:15px;margin-top:2px}
+.flagform label{margin-top:8px}
+
+/* ── the board table ──────────────────────────────────────────────── */
+table.board{width:100%;border-collapse:collapse;font-size:14px;min-width:820px}
+table.board th{white-space:nowrap;cursor:pointer;user-select:none}
+table.board th.sorted{color:var(--accent)}
+table.board th:focus-visible{outline:3px solid var(--accent);outline-offset:-3px}
+table.board td{vertical-align:middle}
+table.board td:nth-child(3){min-width:220px}
+.minibar{height:18px;min-width:90px;margin:0}
+.minibar span{font-size:11px}
+/* On a phone the table scrolls sideways and the bill number stays put, so you never
+   lose track of which row you are reading. */
+@media (max-width:767px){
+  table.board th:nth-child(2), table.board td:nth-child(2){
+    position:sticky;left:0;background:var(--panel);z-index:1}
+}
+
+/* ── committee planning ──────────────────────────────────────────── */
+.bill{padding:8px 0;border-top:1px solid var(--line)}
+.bill:first-child{border-top:0}
+.bill b{font-size:15px}
+.bill .title{color:var(--muted);font-size:13px;margin:2px 0 8px}
+.pill{
+  display:inline-block;border-radius:999px;padding:3px 10px;font-size:12px;font-weight:700;
+  background:var(--accent-soft);color:var(--accent);
+}
+.pill.attn{background:#fdeeee;color:var(--no)}
+@media (prefers-color-scheme: dark){ .pill.attn{background:#33191c} }
+table{width:100%;border-collapse:collapse;font-size:14px}
+th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.06em;
+   color:var(--muted);padding:0 8px 8px 0;font-weight:700}
+td{padding:9px 8px 9px 0;border-top:1px solid var(--line);vertical-align:top}
+.scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.toast{
+  position:fixed;left:50%;transform:translateX(-50%);top:12px;z-index:50;
+  background:var(--ink);color:var(--bg);padding:10px 18px;border-radius:999px;
+  font-size:14px;font-weight:600;box-shadow:var(--shadow);
+}
+.empty{color:var(--muted);font-size:14px;padding:18px 0;text-align:center}
+
+/* ── import ───────────────────────────────────────────────────────── */
+.step h2{display:flex;align-items:center;gap:10px}
+.stepno{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;
+        border-radius:999px;background:var(--accent);color:#fff;font-size:15px;flex:0 0 auto}
+#impPaste, #impPrompt{font:14px/1.4 ui-monospace,Consolas,monospace;resize:vertical}
+#impPrompt{margin-top:10px}
+.imp-row{padding:10px 0;border-top:1px solid var(--line)}
+.imp-row:first-child{border-top:0}
+.imp-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.imp-head input[type=checkbox]{width:22px;height:22px;flex:0 0 auto;margin:0}
+.imp-kind{font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;
+          color:var(--muted)}
+.imp-state{margin-left:auto;font-size:14px;font-weight:700}
+.imp-state.ok{color:var(--yes)} .imp-state.bad{color:var(--no)}
+.imp-state.warn{color:var(--warn)} .imp-state.muted{color:var(--muted)}
+.imp-preview{margin-top:4px}
+.imp-problem{margin-top:8px;padding:8px 10px;border-radius:var(--radius);font-size:15px;
+             background:color-mix(in srgb, var(--warn) 12%, transparent);color:var(--ink)}
+.imp-problem .chips{margin-top:8px}
+.imp-actions{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-top:14px}
+.imp-actions .primary{width:auto}
+button.linkish{border:0;background:none;color:var(--accent);font:inherit;cursor:pointer;
+               text-decoration:underline;padding:8px 0}
+.imp-recent{display:block;width:100%;text-align:left;border:0;border-top:1px solid var(--line);
+            background:none;color:var(--ink);font:inherit;padding:10px 0;cursor:pointer}
+.imp-recent:first-child{border-top:0}
+.imp-recent span{display:block;font-size:14px;color:var(--muted)}
+.feed-stamp{font-size:14px;color:var(--muted);display:inline-flex;gap:10px;align-items:center}
+
+/* ── a bill's roll calls ──────────────────────────────────────────── */
+details.rc{border-top:1px solid var(--line);padding:8px 0}
+details.rc:first-of-type{border-top:0}
+details.rc summary{cursor:pointer;list-style-position:outside;padding:4px 0;font-size:16px}
+.rc-when{display:block;font-size:14px;color:var(--muted);margin-top:2px}
+.rc-group{margin:10px 0 0}
+.rc-head{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+.rc-dot{width:10px;height:10px;border-radius:999px;flex:0 0 auto}
+.rc-names{font-size:15px;line-height:1.6}
+
+/* ── legislators ──────────────────────────────────────────────────── */
+.leg-row{display:block;padding:10px 0;border-top:1px solid var(--line);color:var(--ink);
+         text-decoration:none}
+.leg-row:first-child{border-top:0}
+.leg-row b{font-size:17px}
+.leg-row span{display:block;font-size:14px;color:var(--muted)}
+.leg-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:14px}
+.leg-status{margin-left:8px;font-size:13px;color:var(--muted)}
+.leg-vote{display:flex;gap:10px;align-items:flex-start;padding:8px 0;
+          border-top:1px solid var(--line)}
+.leg-vote:first-child{border-top:0}
+.leg-vote-pill{flex:0 0 auto;min-width:64px;text-align:center;color:#fff;font-weight:700;
+               font-size:14px;padding:4px 8px;border-radius:var(--radius);margin-top:2px}
+.leg-vote-body{flex:1 1 auto;min-width:0}
+.who-link{color:var(--accent);text-decoration:none;font-weight:600}
+.who-link:hover{text-decoration:underline}
+#memberBody a[href^="mailto:"]{color:var(--accent)}
+
+/* ── who-menu ─────────────────────────────────────────────────────── */
+.who{margin-left:auto;position:relative}
+.who summary{list-style:none;cursor:pointer;font-size:13px;font-weight:700;
+             color:var(--accent);background:var(--accent-soft);
+             padding:5px 12px;border-radius:999px}
+.who summary::-webkit-details-marker{display:none}
+.who-menu{position:absolute;right:0;top:calc(100% + 6px);z-index:30;min-width:180px;
+          background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+          box-shadow:var(--shadow);padding:10px}
+.who-full{font-size:13px;color:var(--muted);margin-bottom:8px}
+.who-menu button{border:1px solid var(--line);background:var(--panel);color:var(--ink);
+                 border-radius:var(--radius);padding:7px 12px;font:inherit;font-size:14px;
+                 cursor:pointer;width:100%}
+
+/* ── the feed ─────────────────────────────────────────────────────── */
+.today-head{margin-bottom:4px}
+.feed-bar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:18px 0 8px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:999px;overflow:hidden}
+.seg button{border:0;background:var(--panel);color:var(--muted);font:inherit;font-size:14px;
+            font-weight:600;padding:7px 16px;cursor:pointer}
+.seg button[aria-selected="true"]{background:var(--accent);color:#fff}
+.feed-head{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;
+           color:var(--muted);margin:16px 0 6px}
+.ev{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;
+    padding:8px 0;border-top:1px solid var(--line)}
+.ev:first-child{border-top:0}
+.ev .mark{flex:0 0 auto;font-size:11px;font-weight:800;letter-spacing:.06em;
+          color:var(--muted);min-width:42px}
+.ev .no{font-weight:700;color:var(--accent);text-decoration:none}
+.ev .txt{flex:1 1 220px;min-width:0}
+.ev .when{flex:0 0 auto;font-size:12px;color:var(--muted)}
+.ev .star{flex:0 0 auto;border:0;background:none;cursor:pointer;font-size:15px;
+          color:var(--muted);padding:0 2px;line-height:1}
+.ev.new{background:color-mix(in srgb, var(--accent) 6%, transparent);
+        margin:0 -8px;padding-left:8px;padding-right:8px;border-radius:var(--radius)}
+.ev.new .mark{color:var(--accent)}
+.ev.old .mark{opacity:.65}
+.ev .pill-n{font-size:12px;font-weight:700;background:var(--accent-soft);color:var(--accent);
+            border-radius:999px;padding:2px 8px}
+.more{display:block;width:100%;margin:12px 0 0;padding:10px;border:1px solid var(--line);
+      background:var(--panel);color:var(--muted);border-radius:var(--radius);
+      font:inherit;font-size:14px;cursor:pointer}
+.task-done{border:1px solid var(--line);background:var(--panel);color:var(--muted);
+           border-radius:var(--radius);padding:4px 10px;font:inherit;font-size:13px;
+           cursor:pointer;margin-left:auto}
+
+/* ── motion ──────────────────────────────────────────────────────────
+   Every animation on this page answers a question the reader is silently asking - did
+   that work, where did it go, what is new - and ends in a state that stays on screen,
+   so the motion is never the only signal. Nothing loops, nothing moves except the thing
+   that changed, and nothing blocks the next tap. 150-400 ms, ease-out. Under
+   prefers-reduced-motion everything jumps straight to its end state (rule at the end).
+   The endless sweep that used to walk the border of .next-step was removed 2026-09-23:
+   a thing that moves for ever in the corner of the eye pulls attention off the list,
+   and it sat on exactly the buttons that should feel calm. */
+.next-step{
+  position:relative; display:inline-flex; align-items:center; gap:10px;
+  padding:12px 22px; border-radius:999px; border:1px solid var(--accent);
+  background:var(--ink); color:#fff; font:700 15px/1 inherit; letter-spacing:.08em;
+  text-transform:uppercase; cursor:pointer;
+  box-shadow:0 0 0 1px rgba(0,0,0,.15), 0 0 18px color-mix(in srgb, var(--accent) 35%, transparent);
+  transition:transform .15s ease, box-shadow .2s ease, opacity .2s ease;
+  margin-inline:24px;
+}
+.next-step .gem{
+  width:7px; height:7px; background:var(--accent); transform:rotate(45deg);
+  box-shadow:0 0 8px var(--accent); flex:0 0 auto;
+}
+.next-step .streak{position:absolute; top:50%; height:1px; width:24px;
+  background:linear-gradient(to right, var(--accent), transparent)}
+.next-step .streak-r{background:linear-gradient(to left, var(--accent), transparent)}
+.next-step:hover{ transform:translateY(-2px);
+  box-shadow:0 0 0 1px rgba(0,0,0,.15), 0 0 26px color-mix(in srgb, var(--accent) 55%, transparent) }
+.next-step:active{ transform:translateY(0) scale(.97); transition-duration:.05s }
+.next-step:focus-visible{ outline:3px solid var(--accent); outline-offset:3px }
+.next-step[disabled]{opacity:.55;cursor:progress;transform:none}
+
+/* the tab underline slides to the new tab; the content itself appears at once */
+nav{position:relative}
+nav .ink{position:absolute;left:0;top:0;width:0;height:2px;background:var(--accent);
+         pointer-events:none;transition:left .1s ease-out,width .1s ease-out}
+
+/* a whip row answers "did that work" in place: the tick draws once the server has the
+   entry and stays; a failure turns the row amber with a retry that does not go away.
+   The toast that used to carry both was two seconds at the top of the screen, which
+   nobody looking at the list ever saw. */
+.member{transition:background-color .3s ease-out}
+.member .tick{display:none;width:18px;height:18px;margin-left:6px;vertical-align:-3px;color:var(--ink)}
+.member .tick svg{display:block;width:100%;height:100%}
+.member .tick path{fill:none;stroke:currentColor;stroke-width:2.5;stroke-linecap:round;
+                   stroke-linejoin:round;stroke-dasharray:24;stroke-dashoffset:24}
+.member[data-state="saved"] .tick{display:inline-block}
+.member[data-state="saved"] .tick path{animation:tick-draw .35s ease-out forwards}
+.member[data-state="saved"][data-tick="static"] .tick path{animation:none;stroke-dashoffset:0}
+@keyframes tick-draw{to{stroke-dashoffset:0}}
+.member[data-state="saving"] .pos button[data-on="1"]{opacity:.75}
+.member[data-state="failed"]{background:color-mix(in srgb, var(--warn) 14%, transparent);
+  margin:0 -8px;padding-left:8px;padding-right:8px;border-radius:var(--radius)}
+.member .retry{display:none;border:1px solid var(--warn);background:var(--panel);color:var(--warn);
+               border-radius:999px;padding:4px 10px;font:inherit;font-size:13px;font-weight:700;
+               cursor:pointer;margin-left:8px;vertical-align:1px;min-height:32px}
+.member[data-state="failed"] .retry{display:inline-block}
+.member[data-state="failed"] .name em{color:var(--warn)}
+
+/* the tally: a number slides up as it changes, so the tap and its effect read as one
+   thing. The bar's segments are updated in place for the same reason - rebuilt on every
+   paint, as they used to be, the flex-grow transition below could never run. */
+.count .n{display:inline-block}
+.count .n.bump{animation:num-bump .3s ease-out}
+@keyframes num-bump{from{transform:translateY(45%);opacity:0}to{transform:none;opacity:1}}
+.tally span{transition:flex-grow .3s ease-out}
+
+/* the drawer under a member grows to its own height instead of shoving forty rows down */
+.drawer.anim{display:grid;grid-template-rows:0fr;padding:0;transition:grid-template-rows .2s ease-out}
+.drawer.anim.open{grid-template-rows:1fr}
+.drawer.anim>.drawer-in{min-height:0;overflow:hidden;padding:10px 0 14px}
+.drawer.anim.open>.drawer-in{overflow:visible}
+
+/* the feed: a row that arrived on a refresh fades in rather than shoving the list down;
+   "I've read these" lets the tint drain out of the new rows before they regroup */
+.ev.arrive{animation:ev-arrive .35s ease-out}
+@keyframes ev-arrive{from{opacity:0;max-height:0;padding-top:0;padding-bottom:0;border-top-width:0;overflow:hidden}
+                     to{opacity:1;max-height:240px;overflow:hidden}}
+.ev.new{transition:background-color .5s ease-out}
+.ev.new.fading{background-color:transparent}
+.ev.new .mark{transition:color .5s ease-out}
+.ev.new.fading .mark{color:var(--muted)}
+
+/* loading: grey shapes where the answer will be, so a two-second wait has a shape.
+   "Opening…" as text says nothing about how long; a list-shaped placeholder that then
+   fills in does. */
+.skel-bar{height:16px;border-radius:var(--radius);margin:12px 0;
+  background:linear-gradient(90deg,var(--line) 0 35%,color-mix(in srgb,var(--line) 45%,var(--panel)) 50%,var(--line) 65% 100%);
+  background-size:220% 100%;animation:skel-shimmer 1.6s linear infinite}
+.skel-bar.h1{height:26px;width:40%;margin:16px 0 10px}
+.member.skel .skel-bar{width:45%;margin:0}
+.member.skel .pos span{display:block;width:44px;height:44px;min-width:44px;border-radius:var(--radius);
+  border:1px solid var(--line);flex:0 0 auto}
+@media (min-width:768px){ .member.skel .pos span{min-width:72px} }
+@media (max-width:480px){ .member.skel .pos span{flex:1 1 0} }
+@keyframes skel-shimmer{from{background-position:200% 0}to{background-position:-200% 0}}
+
+/* one switch for the lot: every animation above has an end state, so each one can
+   simply jump there */
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{animation-duration:.001ms !important;animation-iteration-count:1 !important;
+                       transition-duration:.001ms !important}
+  .next-step,.next-step:hover{transform:none}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="bar">
+    <div class="brand">SKYWALKER<small id="sub">leadership</small></div>
+    <!-- The name and "sign out" fold into a menu: on a phone they were taking a third
+         of the top bar to say something the reader already knows. -->
+    <details class="who" id="who" hidden>
+      <summary id="whoName"></summary>
+      <div class="who-menu">
+        <div class="who-full" id="whoFull"></div>
+        <button id="signout">Sign out</button>
+      </div>
+    </details>
+  </div>
+  <nav id="tabs" hidden>
+    <button data-tab="home" aria-selected="true">Today</button>
+    <button data-tab="whip">Whip count</button>
+    <button data-tab="committee">Committees</button>
+    <button data-tab="board">Board</button>
+    <button data-tab="members">Members</button>
+    <button data-tab="import">Import</button>
+  </nav>
+</header>
+
+<div class="wrap">
+
+  <!-- ── sign in ───────────────────────────────────────────────── -->
+  <section id="signin">
+    <div class="card" style="max-width:420px;margin:60px auto">
+      <h2>Leadership sign-in</h2>
+      <p class="sub">Use the personal access code the office gave you.</p>
+      <form id="signinForm">
+        <!-- A password manager offers to remember this only when it can see a
+             credential: a real form, type="password" with autocomplete="current-password",
+             and a username field to file it under. The username is a fixed label - the
+             page does not know who the person is until the code has been checked. Off
+             screen rather than display:none, which some managers ignore. -->
+        <input type="text" name="username" value="Skywalker access code"
+               autocomplete="username" readonly tabindex="-1" aria-hidden="true"
+               style="position:absolute;opacity:0;width:1px;height:1px;pointer-events:none">
+        <label for="code">Access code</label>
+        <input id="code" name="code" type="password" autocomplete="current-password"
+               placeholder="CARP-XXXX-XXXX-XXXX" enterkeyhint="go"
+               autocapitalize="characters" spellcheck="false">
+        <label style="display:flex;gap:6px;align-items:center;margin:8px 0 0;
+                      text-transform:none;letter-spacing:0;font-weight:400;cursor:pointer">
+          <input type="checkbox" id="show" style="width:auto"> show the code
+        </label>
+        <div style="height:10px"></div>
+        <button class="primary" id="go" type="submit">Sign in</button>
+      </form>
+      <div class="err" id="signinErr"></div>
+    </div>
+  </section>
+
+  <!-- ── today: what you owe, then what is new ─────────────────── -->
+  <section id="tab-home" hidden>
+    <div class="today-head">
+      <h1 id="hello"></h1>
+      <p class="sub" id="helloSub"></p>
+    </div>
+
+    <div class="card" id="owe">
+      <h2>What you owe</h2>
+      <div id="tasks"></div>
+    </div>
+
+    <div class="feed-bar">
+      <div class="seg" role="tablist" aria-label="Feed scope">
+        <button data-scope="mine" role="tab">Mine</button>
+        <button data-scope="all"  role="tab" aria-selected="true">Everything</button>
+      </div>
+      <span class="feed-stamp"><span id="feedStamp"></span>
+        <button class="linkish" id="feedRefresh">Refresh</button></span>
+      <button class="next-step" id="caughtUp" hidden>
+        <span class="streak" aria-hidden="true" style="left:-24px"></span>
+        <span class="gem" aria-hidden="true"></span>I've read these<span class="gem" aria-hidden="true"></span>
+        <span class="streak streak-r" aria-hidden="true" style="right:-24px"></span>
+      </button>
+    </div>
+
+    <div id="feedNew"></div>
+    <div id="feedOld"></div>
+    <button class="more" id="feedMore" hidden>Show older</button>
+  </section>
+
+  <!-- ── whip count ────────────────────────────────────────────── -->
+  <section id="tab-whip" hidden>
+    <h1>Whip count</h1>
+    <p class="sub">Enter what a member told you. Every entry is kept — nothing is
+      overwritten, so you can see how a member moved.</p>
+    <!-- Once a bill is open this whole card collapses to one line, so the member list
+         starts inside the first screen on a phone. The chamber is worked out from the
+         bill number rather than asked for: it is on the paper in front of them. -->
+    <div class="card" id="whipPick">
+      <div class="row">
+        <div style="flex:2 1 220px">
+          <label for="whipBill">Bill</label>
+          <input id="whipBill" placeholder="HB2001" enterkeyhint="go"
+                 autocapitalize="characters" spellcheck="false" autocomplete="off">
+        </div>
+        <div style="flex:0 0 auto;display:flex;align-items:flex-end">
+          <button class="next-step" id="whipLoad">
+            <span class="gem" aria-hidden="true"></span>Open<span class="gem" aria-hidden="true"></span>
+          </button>
+        </div>
+      </div>
+    </div>
+    <div class="openbar" id="whipOpenBar" hidden>
+      <b id="whipOpenNo"></b><span id="whipOpenTitle"></span>
+      <button id="whipChange">change</button>
+    </div>
+    <div class="card" id="whipResult" hidden>
+      <div class="counts" id="whipCounts"></div>
+      <div class="tally" id="whipTally"></div>
+      <div class="legend">
+        <span><i style="background:var(--yes)"></i>Yes</span>
+        <span><i style="background:var(--lean-yes)"></i>Lean yes</span>
+        <span><i style="background:var(--undecided)"></i>Undecided</span>
+        <span><i style="background:var(--lean-no)"></i>Lean no</span>
+        <span><i style="background:var(--no)"></i>No</span>
+      </div>
+    </div>
+    <div class="card" id="whipMembersCard" hidden>
+      <h2 id="whipMembersHead">Members</h2>
+      <input id="whipFilter" placeholder="Type a name" autocomplete="off"
+             spellcheck="false" style="margin-bottom:8px">
+      <div id="whipMembers"></div>
+    </div>
+  </section>
+
+  <!-- ── committees ────────────────────────────────────────────── -->
+  <section id="tab-committee" hidden>
+    <h1>Committee planning</h1>
+    <p class="sub">What you intend to do with each bill. Leadership sees the intent, not
+      a promise — and every change is kept.</p>
+    <div id="committees"></div>
+  </section>
+
+  <!-- ── board ─────────────────────────────────────────────────── -->
+  <section id="tab-board" hidden>
+    <h1>Leadership board</h1>
+    <p class="sub">Where the votes are and what needs deciding. Tap a heading to sort.</p>
+    <div id="board"></div>
+  </section>
+
+  <!-- Not in the tab row: you always arrive here from somewhere else. -->
+  <section id="tab-bill" hidden>
+    <a href="#" id="billBack" class="backlink">&larr; Back</a>
+    <div id="billBody"></div>
+  </section>
+  <!-- ── legislators: pick one from the list ────────────────────── -->
+  <section id="tab-members" hidden>
+    <h1>Members</h1>
+    <p class="sub" id="legCount"></p>
+    <input id="legFilter" placeholder="Name, county or district number" autocomplete="off"
+           spellcheck="false" style="margin-bottom:10px">
+    <div class="seg" id="legChamberSeg" role="tablist" aria-label="Chamber" style="margin-bottom:10px">
+      <button data-ch="all" aria-selected="true">Both</button>
+      <button data-ch="house" aria-selected="false">House</button>
+      <button data-ch="senate" aria-selected="false">Senate</button>
+    </div>
+    <div class="card" id="legList"></div>
+  </section>
+
+  <!-- One legislator. Not in the tab row, like the bill page: reached from a name. -->
+  <section id="tab-member" hidden>
+    <a href="#" id="memberBack" class="backlink">&larr; Back</a>
+    <div id="memberBody"></div>
+  </section>
+
+  <!-- ── import: notes -> an LLM -> Skywalker ─────────────────────── -->
+  <!-- Three numbered steps, because the people using this are not going to read a
+       paragraph of instructions and should not have to. Nothing is saved until step 3,
+       and step 3 can be undone. The rules about who may add what are the database's,
+       exactly as for entering by hand (schema/18_llm_import.sql). -->
+  <section id="tab-import" hidden>
+    <h1>Import</h1>
+    <p class="sub">Turn meeting notes, emails or a committee summary into whip counts,
+      plans, flags, notes and briefs — with an AI like ChatGPT, Claude or Copilot doing
+      the typing.</p>
+
+    <div class="card step">
+      <h2><span class="stepno">1</span> Copy the instructions</h2>
+      <p class="sub">Paste them into the AI, then paste your notes underneath and send.</p>
+      <button class="primary" id="impCopy">Copy the instructions</button>
+      <textarea id="impPrompt" readonly hidden rows="8"
+                aria-label="The instructions, to copy by hand"></textarea>
+    </div>
+
+    <div class="card step">
+      <h2><span class="stepno">2</span> Paste the AI's answer</h2>
+      <textarea id="impPaste" rows="7" spellcheck="false" autocomplete="off"
+                placeholder='The answer starts with {"format": "skywalker-import/1" …'></textarea>
+      <div style="height:10px"></div>
+      <button class="primary" id="impCheck">Check it</button>
+      <div class="err" id="impErr"></div>
+    </div>
+
+    <div class="card step" id="impReview" hidden>
+      <h2><span class="stepno">3</span> <span id="impReviewHead">Check and add</span></h2>
+      <p class="sub" id="impReviewSub"></p>
+      <div id="impItems"></div>
+      <div class="imp-actions" id="impActions">
+        <button class="primary" id="impApply">Add to Skywalker</button>
+        <button class="linkish" id="impCancel">Cancel this import</button>
+      </div>
+      <div class="imp-actions" id="impAfter" hidden>
+        <button class="linkish" id="impUndo">Undo this import</button>
+        <button class="linkish" id="impNew">Start another</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Recent imports</h2>
+      <div id="impRecent"></div>
+    </div>
+  </section>
+
+</div>
+
+<script>
+// ── talking to the database ─────────────────────────────────────────
+// One address, one call shape, every rule applied on the far side.
+const LS = {who: 'skywalker.leadership.who',
+            feed: 'skywalker.leadership.feed',
+            scope: 'skywalker.leadership.scope',
+            lastbill: 'skywalker.leadership.lastbill'};
+let V = null;             // SHA-256('verify:' + code) - never the code itself
+let me = null;            // the answer to whoami
+let API = null;
+let SITE_KEY = null;      // opens the published files; kept for this device only
+
+const BASE = './data-bundle';      // same bundle index.html reads
+const $ = s => document.querySelector(s);
+const el = (t, cls, txt) => { const n = document.createElement(t);
+  if (cls) n.className = cls; if (txt !== undefined) n.textContent = txt; return n; };
+const esc = s => String(s == null ? '' : s);
+
+// Must match publish/tier_crypto.py normalize_code() and index.html normCode().
+const normCode = c => String(c || '').toUpperCase().replace(/[^A-Z0-9]/g, '')
+                        .replace(/O/g, '0').replace(/[IL]/g, '1');
+const hexOf = buf => [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
+const sha256hex = async s => hexOf(await crypto.subtle.digest('SHA-256',
+                                   new TextEncoder().encode(s)));
+
+// The API address is published INSIDE the encrypted bundle, like every other file - the
+// site is private and ops/publish_to_pages.py refuses to upload anything readable. So
+// the code has to open the lock before this page can find the address. That is the same
+// keyring dance index.html does, kept short here; the two must agree exactly.
+const b64d = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+const hexBytes = s => Uint8Array.from(String(s || '').match(/../g) || [], h => parseInt(h, 16));
+
+async function aesOpen(rawKey, iv, data){
+  const k = await crypto.subtle.importKey('raw', rawKey, 'AES-GCM', false, ['decrypt']);
+  return new Uint8Array(await crypto.subtle.decrypt({name: 'AES-GCM', iv}, k, data));
+}
+async function gunzip(bytes){
+  const s = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'));
+  return new Response(s).text();
+}
+
+// Returns the site key for a code, or null when the code is not in the keyring.
+async function siteKey(norm){
+  const ring = await (await fetch(BASE + '/tiers/keyring.json', {cache: 'no-cache'})).json();
+  const te = new TextEncoder();
+  const lb = await crypto.subtle.importKey('raw', te.encode('lookup:' + norm), 'PBKDF2',
+                                           false, ['deriveBits']);
+  // Deliberately slow - see publish/tier_crypto.py lookup_of().
+  const lookup = hexOf(await crypto.subtle.deriveBits(
+    {name: 'PBKDF2', hash: 'SHA-256', salt: hexBytes(ring.lsalt), iterations: ring.iter}, lb, 64));
+  const e = ring.entries?.[lookup];
+  if (!e) return null;
+  const base = await crypto.subtle.importKey('raw', te.encode(norm), 'PBKDF2', false, ['deriveBits']);
+  const wrap = await crypto.subtle.deriveBits(
+    {name: 'PBKDF2', hash: 'SHA-256', salt: b64d(e.s), iterations: ring.iter}, base, 256);
+  const inner = JSON.parse(new TextDecoder().decode(await aesOpen(wrap, b64d(e.n), b64d(e.w))));
+  return b64d(inner.site);
+}
+
+async function apiUrl(){
+  if (API !== null) return API;
+  // A demo shown from a plain folder has no bundle to open; ?api=<url> lets it work.
+  const q = new URLSearchParams(location.search).get('api');
+  if (q){ API = q; return API; }
+  if (!SITE_KEY) return null;
+  try {
+    const blob = new Uint8Array(await (await fetch(BASE + '/tiers/api.json', {cache: 'no-cache'})).arrayBuffer());
+    const j = JSON.parse(await gunzip(await aesOpen(SITE_KEY, blob.slice(0, 12), blob.slice(12))));
+    API = j.url || null;
+  } catch { API = null; }
+  return API;
+}
+
+async function call(action, payload){
+  const url = await apiUrl();
+  if (!url) return {ok: false, error: 'This page cannot reach the API from here.'};
+  let r;
+  // 15 s, then give up. Without a limit a request that hangs on a hall's wifi left an
+  // optimistic whip row on screen for ever, with nothing to say it never landed.
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), 15000);
+  try {
+    // text/plain: the one cross-site POST a browser makes without a preflight.
+    r = await fetch(url, {method: 'POST', headers: {'Content-Type': 'text/plain'},
+                          body: JSON.stringify({v: V, action, payload: payload || {}}),
+                          signal: ctl.signal});
+  } catch { return {ok: false, error: 'No connection.'}; }
+  finally { clearTimeout(timer); }
+  let d;
+  try { d = await r.json(); } catch { return {ok: false, error: 'Unreadable reply.'}; }
+  // Retool returns the workflow's answer as rows, as columns or bare, depending on the
+  // version. The workflow deliberately does not choose (docs/RETOOL_SETUP.md).
+  for (let i = 0; i < 4; i++){
+    if (Array.isArray(d) && d.length) d = d[0];
+    else if (d && typeof d === 'object' && 'result' in d && !('ok' in d)) d = d.result;
+    else break;
+  }
+  return (d && typeof d === 'object') ? d : {ok: false, error: 'Unreadable reply.'};
+}
+
+function toast(msg){
+  const t = el('div', 'toast', msg);
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 2200);
+}
+
+// ── sign in ─────────────────────────────────────────────────────────
+async function signIn(code){
+  $('#signinErr').textContent = '';
+  const norm = normCode(code);
+  if (norm.length < 8){ $('#signinErr').textContent = 'That code looks too short.'; return; }
+  V = await sha256hex('verify:' + norm);
+  // Check the code against the published keyring first. It costs a fifth of a second and
+  // it means a mistyped code is answered instantly and locally, instead of spending a
+  // Retool workflow run to be told the same thing.
+  try { SITE_KEY = await siteKey(norm); } catch { SITE_KEY = null; }
+  const r = await call('whoami');
+  if (!r.ok){
+    V = null;
+    $('#signinErr').textContent = r.error === 'unknown code'
+      ? 'That code is not recognised. Check it, or ask the office for a new one.'
+      : (r.error || 'Could not sign in.');
+    return;
+  }
+  me = r.data;
+  // Offer to remember it. Chrome and Edge act on this call; Firefox and Safari decide
+  // from the form. Always an offer, never automatic, and nothing is stored by us.
+  try {
+    if (window.PasswordCredential && navigator.credentials){
+      await navigator.credentials.store(new window.PasswordCredential({
+        id: 'Skywalker access code', password: norm, name: me.name}));
+    }
+  } catch { /* declined or unsupported - never fatal */ }
+  // Only the verifier and the site key, never the code. Someone who takes the phone
+  // gets this device's access, which is exactly what taking the phone always gets them;
+  // they do not get a code they can type in anywhere else.
+  try {
+    localStorage.setItem(LS.who, JSON.stringify({v: V,
+        site: SITE_KEY ? btoa(String.fromCharCode(...SITE_KEY)) : null}));
+  } catch {}
+  showApp();
+}
+
+function showApp(){
+  $('#signin').hidden = true;
+  $('#tabs').hidden = false;
+  $('#who').hidden = false;
+  $('#whoName').textContent = (me.name || '').split(' ')[0] || me.name;
+  $('#whoFull').textContent = me.name + (me.roles.length
+      ? ' · ' + me.roles.join(', ').replace(/_/g, ' ') : '');
+  $('#sub').textContent = me.roles.length ? me.roles.join(' · ').replace(/_/g, ' ') : 'leadership';
+  $('#hello').textContent = me.name;
+  const bits = [];
+  if (me.committees.length) bits.push(me.committees.length + ' committee' + (me.committees.length > 1 ? 's' : ''));
+  if (me.covers_members) bits.push(me.covers_members + ' members to whip');
+  $('#helloSub').textContent = bits.join(' · ') || 'Session ' + me.biennium.replace('b', '').replace('_', '–');
+  drawTasks(me.tasks || []);
+  // "Mine" only makes sense once something IS mine. A new code holder with no follows,
+  // no committee and nobody to whip would otherwise land on an empty screen.
+  scope = loadLS(LS.scope) ||
+    ((me.follows || []).length || me.committees.length || me.covers_members ? 'mine' : 'all');
+  show('home');
+  paintFeedFromCache();
+  loadFeed(scope);
+  // Pick up where they left off. A whip works one bill at a time, for days.
+  try {
+    const last = JSON.parse(loadLS(LS.lastbill) || 'null');
+    if (last && last.bill){
+      $('#whipBill').value = last.bill;
+      loadWhip();
+      const resume = el('button', 'next-step');
+      resume.id = 'resume';
+      resume.appendChild(el('span', 'gem'));
+      resume.appendChild(document.createTextNode('Resume ' + last.bill));
+      resume.appendChild(el('span', 'gem'));
+      resume.onclick = () => show('whip');
+      resume.style.margin = '6px 24px 0';
+      $('#owe').after(resume);
+    }
+  } catch {}
+}
+
+function drawTasks(tasks){
+  const box = $('#tasks'); box.textContent = '';
+  if (!tasks.length){ box.appendChild(el('div', 'empty', 'Nothing owed.')); return; }
+  tasks.forEach(t => {
+    const d = el('div', 'bill');
+    const head = el('div');
+    head.style.display = 'flex';
+    head.style.alignItems = 'baseline';
+    head.style.gap = '8px';
+    if (t.bill_no){
+      const a = el('a', 'no', t.bill_no);
+      a.href = '#bill/' + encodeURIComponent(t.bill_no);
+      a.style.textDecoration = 'none';
+      head.appendChild(a);
+    }
+    head.appendChild(el('b', null, t.title || 'Task'));
+    if (t.severity && t.severity !== 'normal'){
+      head.appendChild(el('span', 'pill attn', t.severity));
+    }
+    // Closing a ping is the one thing a person wants to do to it.
+    const done = el('button', 'task-done', 'Done');
+    done.onclick = async () => {
+      done.disabled = true;
+      const r = await call('task_done', {task_id: t.task_id});
+      if (r.ok){ d.remove(); toast('Done'); if (!box.children.length) drawTasks([]); }
+      else { done.disabled = false; toast(r.error || 'Could not close that'); }
+    };
+    head.appendChild(done);
+    d.appendChild(head);
+    if (t.detail) d.appendChild(el('div', 'title', t.detail));
+    box.appendChild(d);
+  });
+}
+
+// ── the feed ────────────────────────────────────────────────────────
+// What the page draws is whatever the API hands back; it never decides who may see
+// what. See api_feed() in schema/14_api.sql (and the rule table in 17_feed.sql).
+let scope = 'all';
+let feedAnswer = null;       // the last answer, as received
+let feedShown = 60;          // how many "earlier" rows are on screen
+let feedBusy = false;        // never two calls in flight
+// Rows that arrive on a refresh fade in; rows the reader has already seen do not move.
+// Keyed per scope, so switching Mine/Everything repaints plainly rather than animating
+// a whole screen of "new" rows in.
+let feedPaintedScope = null;
+const feedSeenIds = new Set();
+
+// The short marks are text, not icons: an icon needs a legend, and this list is read by
+// people who have thirty seconds between votes.
+const MARK = {
+  bill_action: 'ACT', bill_new: 'NEW', bill_status: 'STAT', bill_version: 'VER',
+  vote: 'VOTE', hearing: 'HRG', hearing_status: 'HRG', governor: 'GOV',
+  member_status: 'MBR', committee_roster: 'CMTE', whip: 'WHIP', plan: 'PLAN',
+  brief: 'BRIEF', flag: 'FLAG', tag: 'TAG', note: 'NOTE'
+};
+const POS_COLOUR = {yes: 'var(--yes)', lean_yes: 'var(--lean-yes)',
+                    undecided: 'var(--undecided)', lean_no: 'var(--lean-no)',
+                    no: 'var(--no)'};
+
+function loadLS(k){ try { return localStorage.getItem(k); } catch { return null; } }
+function saveLS(k, v){ try { localStorage.setItem(k, v); } catch {} }
+
+function whenText(iso){
+  if (!iso) return '';
+  const d = new Date(iso), now = new Date();
+  if (d.toDateString() === now.toDateString())
+    return d.toLocaleTimeString([], {hour: 'numeric', minute: '2-digit'});
+  if (d.getFullYear() === now.getFullYear())
+    return d.toLocaleDateString([], {month: 'short', day: 'numeric'});
+  return d.toLocaleDateString([], {year: '2-digit', month: 'numeric', day: 'numeric'});
+}
+
+function isFollowed(e){
+  if (!e.bill_no) return false;
+  return (me.follows || []).some(f => f.subject_type === 'bill'
+    && f.subject_key === e.biennium + '|' + e.bill_no);
+}
+
+function eventRow(e, isNew){
+  const row = el('div', 'ev ' + (isNew ? 'new' : 'old'));
+  row.appendChild(el('span', 'mark', MARK[e.kind] || e.kind.slice(0, 4).toUpperCase()));
+  if (e.bill_no){
+    const a = el('a', 'no', e.bill_no);
+    a.href = '#bill/' + encodeURIComponent(e.bill_no);
+    row.appendChild(a);
+  }
+  const txt = el('span', 'txt', e.summary || '');
+  // Any row about a legislator names them as a link to everything about them.
+  if (e.person_id && e.kind !== 'whip'){
+    const who = el('a', 'who-link', e.person_name || 'Member');
+    who.href = memberLink(e.person_id);
+    txt.textContent = '';
+    txt.appendChild(who);
+    txt.appendChild(document.createTextNode(' · ' + (e.summary || '')));
+  }
+  if (e.kind === 'whip' && e.detail && e.detail.position){
+    txt.textContent = '';
+    const who = (e.summary || '').split(':')[0];
+    if (e.person_id){
+      const a = el('a', 'who-link', who); a.href = memberLink(e.person_id);
+      txt.appendChild(a); txt.appendChild(document.createTextNode(': '));
+    } else txt.appendChild(document.createTextNode(who + ': '));
+    const p = el('b', null, String(e.detail.position).replace(/_/g, ' '));
+    p.style.color = POS_COLOUR[e.detail.position] || 'inherit';
+    txt.appendChild(p);
+  }
+  row.appendChild(txt);
+  if (e.kind === 'vote' && e.detail && (e.detail.yea != null)){
+    row.appendChild(el('span', 'pill-n', `${e.detail.yea}–${e.detail.nay}`));
+  }
+  const when = el('span', 'when', whenText(e.seen_at));
+  // Both times, for anyone who wonders why a three-day-old hearing is at the top.
+  when.title = 'Learned ' + new Date(e.seen_at).toLocaleString()
+    + (e.happened_at ? ' · Happened ' + new Date(e.happened_at).toLocaleString() : '');
+  row.appendChild(when);
+  if (e.bill_no){
+    const star = el('button', 'star', isFollowed(e) ? '★' : '☆');
+    star.title = 'Follow this bill';
+    star.onclick = async () => {
+      const key = e.biennium + '|' + e.bill_no;
+      const on = isFollowed(e);
+      star.textContent = on ? '☆' : '★';
+      const r = await call(on ? 'unfollow' : 'follow',
+                          {subject_type: 'bill', subject_key: key});
+      if (r.ok) me.follows = r.data || [];
+      else { star.textContent = on ? '★' : '☆'; toast(r.error || 'Not saved'); }
+    };
+    row.appendChild(star);
+  }
+  return row;
+}
+
+// Consecutive rows that say the same thing at the same minute become one line. Thirty
+// bills dying on the calendar at 10:57 is ONE event, not thirty - the same rule the
+// main site uses (index.html, "Collapse consecutive identical actions").
+function renderInto(box, events, isNew, limit, animate){
+  box.textContent = '';
+  const groups = [];
+  for (const e of events.slice(0, limit)){
+    const key = `${e.kind}|${e.summary}|${(e.seen_at || '').slice(0, 16)}`;
+    const last = groups[groups.length - 1];
+    if (last && last.key === key) last.items.push(e);
+    else groups.push({key, items: [e]});
+  }
+  groups.forEach(g => {
+    const e = g.items[0];
+    let row;
+    if (g.items.length === 1){ row = eventRow(e, isNew); }
+    else {
+      row = el('div', 'ev ' + (isNew ? 'new' : 'old'));
+      row.appendChild(el('span', 'mark', MARK[e.kind] || 'ACT'));
+      const txt = el('span', 'txt');
+      txt.appendChild(el('b', null, g.items.length + ' bills'));
+      txt.appendChild(document.createTextNode(' ' + (e.summary || '')));
+      const bills = g.items.filter(x => x.bill_no);
+      const line = el('div');
+      line.style.marginTop = '2px';
+      bills.slice(0, 8).forEach((x, i) => {
+        if (i) line.appendChild(document.createTextNode(', '));
+        const a = el('a', 'no', x.bill_no);
+        a.href = '#bill/' + encodeURIComponent(x.bill_no);
+        line.appendChild(a);
+      });
+      if (bills.length > 8) line.appendChild(document.createTextNode(` +${bills.length - 8} more`));
+      txt.appendChild(line);
+      row.appendChild(txt);
+      row.appendChild(el('span', 'when', whenText(e.seen_at)));
+    }
+    // Only a row the reader has not been shown before fades in, and only when the list
+    // it joins was already on screen; the first paint of a list is plain.
+    if (animate && !feedSeenIds.has(e.event_id)) row.classList.add('arrive');
+    box.appendChild(row);
+  });
+  if (animate !== undefined) events.slice(0, limit).forEach(e => feedSeenIds.add(e.event_id));
+  return groups.length;
+}
+
+function paintFeed(){
+  if (!feedAnswer) return;
+  const evs = feedAnswer.events || [];
+  // A backfilled row is history the system imported, not something that happened while
+  // you were away. It is never "new", whatever the watermark says.
+  const fresh = evs.filter(e => e.is_new && !(e.detail && e.detail.backfill));
+  const rest  = evs.filter(e => !(e.is_new && !(e.detail && e.detail.backfill)));
+
+  const newBox = $('#feedNew'), oldBox = $('#feedOld');
+  newBox.textContent = ''; oldBox.textContent = '';
+  // Arrivals animate only into a list that was already showing for this scope. What
+  // "Show older" adds at the bottom is not an arrival and paints plainly.
+  const animate = feedPaintedScope === feedAnswer.scope;
+  if (fresh.length){
+    newBox.appendChild(el('div', 'feed-head', `New since you last looked (${fresh.length})`));
+    const b = el('div'); renderInto(b, fresh, true, 200, animate); newBox.appendChild(b);
+  }
+  if (rest.length){
+    oldBox.appendChild(el('div', 'feed-head', fresh.length ? 'Earlier' : 'Recent'));
+    const b = el('div'); renderInto(b, rest, false, feedShown, false); oldBox.appendChild(b);
+  }
+  if (!evs.length){
+    oldBox.appendChild(el('div', 'empty', 'Nothing has changed yet.'));
+  }
+  feedPaintedScope = feedAnswer.scope;
+  $('#caughtUp').hidden = fresh.length === 0;
+  $('#feedMore').hidden = rest.length <= feedShown;
+}
+
+function paintFeedFromCache(){
+  // First paint before any network call: opening the site should show something in the
+  // time it takes to unlock a phone, not after a round trip to Retool.
+  try {
+    const raw = localStorage.getItem(LS.feed);
+    if (raw){ feedAnswer = JSON.parse(raw); paintFeed(); }
+  } catch {}
+}
+
+async function loadFeed(which){
+  if (feedBusy) return;
+  feedBusy = true;
+  try {
+    const r = await call('feed', {scope: which, limit: 150});
+    if (r.ok){
+      // "Mine" with nothing of yours in it is a blank screen for someone who has
+      // 16,000 events available. Nothing is mine until they follow a bill, chair a
+      // committee or have members to whip - so fall back once, silently.
+      if (which === 'mine' && !(r.data.events || []).length
+          && !(r.data.follows || []).length
+          && !me.committees.length && !me.covers_members){
+        feedBusy = false;
+        setScope('all');
+        return;
+      }
+      feedAnswer = r.data;
+      feedAnswer.scope = which;
+      feedShown = 60;
+      feedLoadedAt = Date.now();
+      paintFeedStamp();
+      if (r.data.follows) me.follows = r.data.follows;
+      paintFeed();
+      try { localStorage.setItem(LS.feed, JSON.stringify(r.data)); } catch {}
+    }
+  } finally { feedBusy = false; }
+}
+
+async function markCaughtUp(){
+  const btn = $('#caughtUp');
+  btn.disabled = true;
+  const r = await call('feed_seen', {});
+  if (!r.ok){ btn.disabled = false; toast(r.error || 'Not saved'); return; }
+  // Let the tint drain out of the new rows for half a second before they regroup, so
+  // the reader sees them become read rather than the highlight simply vanishing.
+  document.querySelectorAll('#feedNew .ev.new').forEach(x => x.classList.add('fading'));
+  await new Promise(res => setTimeout(res, 500));
+  btn.disabled = false;
+  // Move the rows locally instead of asking again: the answer would be identical apart
+  // from one boolean, and this way the list does not jump under the reader's thumb.
+  if (feedAnswer) feedAnswer.events.forEach(e => { e.is_new = false; });
+  paintFeed();
+  toast('Caught up');
+}
+
+function setScope(which){
+  scope = which;
+  saveLS(LS.scope, which);
+  // The feed's own switch only. '.seg button' on its own also caught the Members
+  // tab's House/Senate switch and the session switch on a legislator's page, and
+  // turned both into feed-scope buttons (found 2026-09-24).
+  document.querySelectorAll('.feed-bar .seg button').forEach(b =>
+    b.setAttribute('aria-selected', String(b.dataset.scope === which)));
+  if (feedAnswer && feedAnswer.scope === which) paintFeed();
+  else loadFeed(which);
+}
+
+// NO TIMER. This used to ask for the feed every 60 seconds while Today was open, and
+// every ask is one Retool workflow run. One screen left open on a desk for a working
+// day was 480 runs - about 10,000 a month from a single tab, against an allowance of
+// 500 (Free) or 5,000 (Team) for the whole office (found 2026-09-24; the project's own
+// RETOOL_PREP_PLAN had already ruled polling out). The feed now refreshes when it can
+// matter: when you come back to the tab, when you come back to Today, and when you
+// press Refresh - and never twice inside a minute, however often the tab flickers.
+let feedLoadedAt = 0;
+const FEED_MIN_GAP = 60000;
+
+function feedTicker(on){
+  if (on) refreshFeedIfStale();
+}
+function refreshFeedIfStale(){
+  if (Date.now() - feedLoadedAt < FEED_MIN_GAP) return;
+  loadFeed(scope);
+}
+function paintFeedStamp(){
+  const s = $('#feedStamp');
+  if (s && feedLoadedAt) s.textContent = 'Updated ' + new Date(feedLoadedAt)
+    .toLocaleTimeString([], {hour: 'numeric', minute: '2-digit'});
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && !$('#tab-home').hidden) refreshFeedIfStale();
+});
+
+// ── tabs ────────────────────────────────────────────────────────────
+// The underline is one element that slides to the selected tab (a tenth of a second),
+// which is the only thing that moves on a tab change: the content appears at once.
+// Measured from the button itself, so it follows the strip when it scrolls sideways.
+function moveInk(){
+  const nav = $('#tabs');
+  const ink = nav.querySelector('.ink');
+  const b = nav.querySelector('button[aria-selected="true"]');
+  if (!ink) return;
+  if (!b){ ink.style.width = '0'; return; }
+  ink.style.left = b.offsetLeft + 'px';
+  ink.style.width = b.offsetWidth + 'px';
+  ink.style.top = (b.offsetTop + b.offsetHeight - 2) + 'px';
+}
+
+function show(name){
+  ['home', 'whip', 'committee', 'board', 'members', 'import'].forEach(n => {
+    $('#tab-' + n).hidden = n !== name;
+  });
+  $('#tab-bill').hidden = true;
+  $('#tab-member').hidden = true;
+  billReturnTab = name;
+  document.querySelectorAll('#tabs button').forEach(b =>
+    b.setAttribute('aria-selected', String(b.dataset.tab === name)));
+  moveInk();
+  if (name === 'committee') loadCommittees();
+  if (name === 'board') loadBoard();
+  if (name === 'import') loadImportRecent();
+  if (name === 'members') loadLegislators();
+  feedTicker(name === 'home');
+}
+
+// ── whip count ──────────────────────────────────────────────────────
+// Short labels for a phone, words when there is room. Never a case-only pair like
+// "Y"/"y" - on a small screen, under a thumb, in a hurry, those are the same button.
+const POS = [['yes', 'Y', 'Yes'], ['lean_yes', 'LY', 'Lean yes'],
+             ['undecided', '?', '?'], ['lean_no', 'LN', 'Lean no'], ['no', 'N', 'No']];
+const CERTAINTY = ['firm', 'probable', 'soft'];
+
+let whipData = null;        // the current answer, mutated in place as entries are saved
+let whipBill = '';
+let openDrawer = null;      // only one at a time
+
+// ROWS NEVER MOVE WHILE A COUNT IS BEING TAKEN. A row that jumped to "Counted" the
+// instant it was saved shifted the whole list under the thumb, which is how the next
+// member gets the wrong entry. A saved row now keeps its place, its colour and a tick,
+// like a tick on paper; the list regroups the next time it is painted for another
+// reason (a filter, a different bill). The headings' counts stay true meanwhile.
+const savedHere = new Set();   // person_ids saved on the open bill in this sitting
+
+function tickSvg(){
+  const ns = 'http://www.w3.org/2000/svg';
+  const s = document.createElementNS(ns, 'svg');
+  s.setAttribute('viewBox', '0 0 20 20'); s.setAttribute('aria-hidden', 'true');
+  const p = document.createElementNS(ns, 'path');
+  p.setAttribute('d', 'M4 10.5 8.5 15 16 6');
+  s.appendChild(p);
+  return s;
+}
+
+function metaLine(m){
+  if (!m.at) return '';
+  return (m.by ? m.by + ' · ' : '') + new Date(m.at).toLocaleDateString()
+       + (m.follow_up ? ' · follow up' : '');
+}
+
+// One place sets what a row looks like: which button is filled, the tick, the amber
+// "not saved" state with its retry, and the small line under the name.
+function setRowState(wrap, m, state){
+  const row = wrap.querySelector('.member');
+  const shown = m._pending || m.position;
+  row.querySelectorAll('.pos button').forEach(b => {
+    const on = b.dataset.p === shown;
+    b.setAttribute('aria-pressed', String(on));
+    if (on) b.dataset.on = '1'; else delete b.dataset.on;
+  });
+  row.dataset.state = state || '';
+  const name = row.querySelector('.name');
+  let em = name.querySelector('em');
+  const meta = state === 'failed' ? 'Not saved' : metaLine(m);
+  if (meta){ if (!em) em = name.appendChild(el('em')); em.textContent = meta; }
+  else if (em) em.remove();
+}
+
+function visibleMembers(){
+  const q = ($('#whipFilter').value || '').trim().toLowerCase();
+  return whipData.members.filter(m => !q || m.name.toLowerCase().includes(q));
+}
+
+function updateGroupHeads(){
+  const all = visibleMembers();
+  const todo = all.filter(m => !m.position).length;
+  const h1 = $('#whipMembers .grouphead[data-group="todo"]');
+  const h2 = $('#whipMembers .grouphead[data-group="done"]');
+  if (h1) h1.textContent = `Not yet asked (${todo})`;
+  if (h2) h2.textContent = `Counted (${all.length - todo})`;
+}
+
+// ── loading shapes ──────────────────────────────────────────────────
+function skeletonBars(n){
+  const s = el('div');
+  const widths = [92, 70, 84, 60, 78, 66];
+  for (let i = 0; i < n; i++){
+    const b = el('div', 'skel-bar');
+    b.style.width = widths[i % widths.length] + '%';
+    s.appendChild(b);
+  }
+  return s;
+}
+function skeletonCards(n, bars){
+  const s = el('div');
+  for (let i = 0; i < n; i++){
+    const c = el('div', 'card');
+    c.appendChild(el('div', 'skel-bar h1'));
+    c.appendChild(skeletonBars(bars));
+    s.appendChild(c);
+  }
+  return s;
+}
+// The member list's own shape: a name bar and five empty buttons per row, so the real
+// rows fill in where the grey ones were.
+function skeletonMembers(n){
+  const s = el('div');
+  for (let i = 0; i < n; i++){
+    const row = el('div', 'member skel');
+    const name = el('div', 'name');
+    name.appendChild(el('div', 'skel-bar'));
+    row.appendChild(name);
+    const pos = el('div', 'pos');
+    for (let j = 0; j < 5; j++) pos.appendChild(el('span'));
+    row.appendChild(pos);
+    s.appendChild(row);
+  }
+  return s;
+}
+
+// The chamber is on the paper in front of them; asking for it again is a question with
+// a known answer. "2001" and "sb10" are what people actually type.
+function normalizeBill(raw){
+  let v = String(raw || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  if (/^\d+$/.test(v)) v = 'HB' + v;
+  const chamber = v.startsWith('S') ? 'senate' : 'house';
+  return {bill: v, chamber};
+}
+
+function tallyFrom(members){
+  // Counted from the members we already hold, so the numbers move the instant an entry
+  // lands without asking the server for the whole board again.
+  const t = {yes: 0, lean_yes: 0, undecided: 0, lean_no: 0, no: 0, not_asked: 0,
+             follow_ups: 0};
+  members.forEach(m => {
+    if (m.position && t[m.position] !== undefined) t[m.position]++;
+    else if (!m.position) t.not_asked++;
+    if (m.follow_up) t.follow_ups++;
+  });
+  return t;
+}
+
+function paintTally(){
+  const t = tallyFrom(whipData.members);
+  const counts = $('#whipCounts');
+  const cells = [['yes', 'Yes'], ['lean_yes', 'Lean yes'], ['undecided', 'Undecided'],
+                 ['lean_no', 'Lean no'], ['no', 'No'], ['not_asked', 'Not asked']];
+  // "Follow up: 0" is a number nobody needs; it earns its place only when there is one.
+  if (t.follow_ups) cells.push(['follow_ups', 'Follow up']);
+  // Updated in place, so a number that changed can slide up. Rebuilt only when the set
+  // of cells changes (the first paint, or Follow up appearing).
+  const want = cells.map(c => c[0]).join(',');
+  if (counts.dataset.cells !== want){
+    counts.textContent = '';
+    cells.forEach(([k, label]) => {
+      const c = el('div', 'count');
+      c.dataset.k = k;
+      c.appendChild(el('span', 'n', String(t[k] || 0)));
+      c.appendChild(el('small', null, label));
+      counts.appendChild(c);
+    });
+    counts.dataset.cells = want;
+  } else {
+    cells.forEach(([k]) => {
+      const n = counts.querySelector(`.count[data-k="${k}"] .n`);
+      const v = String(t[k] || 0);
+      if (n && n.textContent !== v){
+        n.textContent = v;
+        n.classList.remove('bump'); void n.offsetWidth; n.classList.add('bump');
+      }
+    });
+  }
+  // Five segments that always exist; a zero one has no width. Changing flex-grow on a
+  // segment that is already there is what lets the bar move rather than snap.
+  const bar = $('#whipTally');
+  if (bar.children.length !== POS.length){
+    bar.textContent = '';
+    POS.forEach(([k]) => bar.appendChild(el('span', 's-' + k)));
+  }
+  POS.forEach(([k], i) => {
+    const n = t[k] || 0;
+    const sp = bar.children[i];
+    sp.style.flex = n + ' 1 0';
+    sp.textContent = n ? String(n) : '';
+  });
+}
+
+function memberRow(m){
+  const wrap = el('div');
+  wrap.dataset.person = m.person_id;
+  const row = el('div', 'member');
+  const name = el('div', 'name');
+  // "Last, First" is how a whip list is read aloud. last_name comes from the database;
+  // splitting a full name on the last space gets "Van Meter" and "St. Clair" wrong.
+  const surname = m.last_name || m.name.split(' ').slice(-1)[0];
+  let rest = m.name;
+  if (m.last_name && m.name.endsWith(m.last_name)) rest = m.name.slice(0, -m.last_name.length).trim();
+  else if (m.name.startsWith(surname)) rest = m.name.slice(surname.length).trim();
+  name.appendChild(document.createTextNode(surname + (rest && rest !== m.name ? ', ' + rest : '')));
+  const tick = el('span', 'tick');
+  tick.appendChild(tickSvg());
+  name.appendChild(tick);
+  const retry = el('button', 'retry', 'Tap to retry');
+  retry.onclick = e => {
+    e.stopPropagation();
+    if (m._pending) savePosition(m, m._pending, wrap, m._pendingDrawer);
+  };
+  name.appendChild(retry);
+  name.onclick = () => toggleDrawer(wrap, m);
+  row.appendChild(name);
+
+  const pos = el('div', 'pos');
+  const wide = window.matchMedia('(min-width: 768px)').matches;
+  POS.forEach(([k, short, long]) => {
+    const b = el('button', null, wide ? long : short);
+    b.dataset.p = k;
+    b.setAttribute('aria-label', long);
+    b.onclick = () => savePosition(m, k, wrap);
+    pos.appendChild(b);
+  });
+  row.appendChild(pos);
+  wrap.appendChild(row);
+  // A row painted after its save keeps the tick without drawing it again.
+  if (m._pending) setRowState(wrap, m, 'failed');
+  else if (savedHere.has(m.person_id)){ row.dataset.tick = 'static'; setRowState(wrap, m, 'saved'); }
+  else setRowState(wrap, m, '');
+  return wrap;
+}
+
+function paintMembers(){
+  const box = $('#whipMembers'); box.textContent = '';
+  const all = visibleMembers();
+  $('#whipMembersHead').textContent = whipData.can_enter
+    ? `Members (${whipData.members.length})` : 'Totals only';
+  if (!whipData.members.length){
+    box.appendChild(el('div', 'empty', whipData.can_enter
+      ? 'No members on your list yet — the Whip assigns them.'
+      : 'You see the totals for this bill, not the individual members.'));
+    return;
+  }
+  // Not yet asked first: the list is a worklist, and the work is the people nobody has
+  // spoken to. The counted ones are there to be corrected, not scrolled past.
+  const todo = all.filter(m => !m.position);
+  const done = all.filter(m => m.position);
+  if (todo.length){
+    const h = el('div', 'grouphead', `Not yet asked (${todo.length})`);
+    h.dataset.group = 'todo';
+    box.appendChild(h);
+    todo.forEach(m => box.appendChild(memberRow(m)));
+  }
+  if (done.length){
+    const h = el('div', 'grouphead', `Counted (${done.length})`);
+    h.dataset.group = 'done';
+    box.appendChild(h);
+    done.forEach(m => box.appendChild(memberRow(m)));
+  }
+  if (!todo.length && !done.length) box.appendChild(el('div', 'empty', 'No one matches that.'));
+}
+
+// The drawer grows to its own height over a fifth of a second and shrinks the same way.
+// A closing drawer is marked so a second tap during those 220 ms opens a fresh one
+// instead of toggling the one on its way out.
+function closeDrawer(box){
+  box.dataset.closing = '1';
+  box.classList.remove('open');
+  setTimeout(() => box.remove(), 220);
+}
+
+function toggleDrawer(wrap, m){
+  if (openDrawer && openDrawer !== wrap){
+    const other = openDrawer.querySelector('.drawer:not([data-closing])');
+    if (other) closeDrawer(other);
+  }
+  const existing = wrap.querySelector('.drawer:not([data-closing])');
+  if (existing){ closeDrawer(existing); openDrawer = null; return; }
+  openDrawer = wrap;
+
+  const box = el('div', 'drawer anim');
+  const d = el('div', 'drawer-in');
+  box.appendChild(d);
+  m._certainty = m._certainty || m.certainty || 'probable';
+
+  d.appendChild(el('label', null, 'How sure'));
+  const chips = el('div', 'chips');
+  CERTAINTY.forEach(c => {
+    const b = el('button', null, c[0].toUpperCase() + c.slice(1));
+    b.setAttribute('aria-pressed', String(m._certainty === c));
+    b.onclick = () => {
+      m._certainty = c;
+      [...chips.children].forEach(x =>
+        x.setAttribute('aria-pressed', String(x.textContent.toLowerCase() === c)));
+    };
+    chips.appendChild(b);
+  });
+  d.appendChild(chips);
+
+  d.appendChild(el('label', null, 'Note'));
+  const note = el('input'); note.value = m.note || ''; note.placeholder = 'What they said';
+  d.appendChild(note);
+
+  d.appendChild(el('label', null, 'Amendment sensitivity'));
+  const amend = el('input'); amend.value = m.amendment_sensitivity || '';
+  amend.placeholder = 'What would change their mind';
+  d.appendChild(amend);
+
+  const fu = el('label');
+  fu.style.cssText = 'display:flex;gap:8px;align-items:center;text-transform:none;' +
+                     'letter-spacing:0;font-weight:400;margin-top:10px';
+  const fuBox = el('input'); fuBox.type = 'checkbox'; fuBox.style.width = 'auto';
+  fuBox.checked = !!m.follow_up;
+  fu.appendChild(fuBox); fu.appendChild(document.createTextNode('Needs a follow-up'));
+  d.appendChild(fu);
+
+  // From a whip conversation straight to everything else about the member: how they
+  // have voted, what they sponsor, what else the office has recorded.
+  const all = el('a', 'who-link', 'Everything about ' + (m.last_name || m.name) + ' →');
+  all.href = memberLink(m.person_id);
+  all.style.cssText = 'display:inline-block;margin-top:10px';
+  d.appendChild(all);
+
+  if ((m.history || []).length){
+    const h = el('div', 'hist');
+    h.appendChild(el('b', null, 'Earlier'));
+    m.history.forEach(x => h.appendChild(el('div', null,
+      String(x.position).replace(/_/g, ' ') + ' · ' + (x.certainty || '') + ' · '
+      + new Date(x.at).toLocaleDateString() + (x.by ? ' · ' + x.by : ''))));
+    d.appendChild(h);
+  }
+
+  const save = el('button', 'next-step');
+  save.style.marginTop = '12px';
+  save.appendChild(el('span', 'gem'));
+  save.appendChild(document.createTextNode('Save'));
+  save.appendChild(el('span', 'gem'));
+  save.onclick = async () => {
+    if (!m.position && !m._pending){ toast('Pick a position first'); return; }
+    m.note = note.value; m.amendment_sensitivity = amend.value;
+    m.follow_up = fuBox.checked; m.certainty = m._certainty;
+    // Close first, so the row and its tick are what the reader watches.
+    closeDrawer(box); openDrawer = null;
+    await savePosition(m, m._pending || m.position, wrap, true);
+  };
+  d.appendChild(save);
+  wrap.appendChild(box);
+  void box.offsetHeight;   // a reflow with the drawer shut, so the transition has a start
+  box.classList.add('open');
+}
+
+async function loadWhip(){
+  const {bill, chamber} = normalizeBill($('#whipBill').value);
+  if (!bill){ toast('Enter a bill number'); return; }
+  // Something appears on the tap itself: grey rows the shape of the list, so the second
+  // or two the board takes has a shape instead of a dead button.
+  const btn = $('#whipLoad');
+  btn.disabled = true;
+  $('#whipMembersCard').hidden = false;
+  $('#whipMembersHead').textContent = 'Members';
+  const box = $('#whipMembers');
+  box.textContent = '';
+  box.appendChild(skeletonMembers(8));
+  const r = await call('whip_board', {bill_no: bill, chamber});
+  btn.disabled = false;
+  if (!r.ok){
+    // Back to whatever was showing before: the previous bill's list, or nothing.
+    if (whipData) paintMembers(); else $('#whipMembersCard').hidden = true;
+    toast(r.error || 'Could not open that');
+    return;
+  }
+  savedHere.clear();
+  whipData = r.data; whipBill = bill;
+  $('#whipBill').value = bill;
+  saveLS(LS.lastbill, JSON.stringify({bill, chamber}));
+  $('#whipResult').hidden = false;
+  $('#whipMembersCard').hidden = false;
+  // Collapse the picker: on a phone it was pushing the first member below the fold.
+  $('#whipPick').hidden = true;
+  $('#whipOpenBar').hidden = false;
+  $('#whipOpenNo').textContent = bill;
+  $('#whipOpenTitle').textContent = whipData.title || '';
+  paintTally();
+  paintMembers();
+  // A keyboard covering the list is worse than no filter at all, so only on a desktop.
+  if (window.matchMedia('(min-width: 768px)').matches) $('#whipFilter').focus();
+}
+
+async function savePosition(member, position, wrap, fromDrawer){
+  const payload = {bill_no: whipBill, person_id: member.person_id, position,
+                   certainty: member._certainty || member.certainty || 'probable'};
+  if (fromDrawer){
+    payload.note = member.note || '';
+    payload.amendment_sensitivity = member.amendment_sensitivity || '';
+    payload.follow_up = !!member.follow_up;
+  }
+  const had = member.position;
+  // Optimistic: the button fills and the tally moves on the tap itself, because the
+  // thumb has already moved on. What the server says arrives a second or more later,
+  // as a tick that stays or as an amber row that stays. Nothing is repainted and no
+  // row moves - see the note above savedHere.
+  member.position = position;
+  member._pending = null;
+  setRowState(wrap, member, 'saving');
+  paintTally();
+  updateGroupHeads();
+  const r = await call('whip_save', payload);
+  if (!r.ok){
+    // The row keeps the reader's intent (the button they chose) and turns amber with a
+    // retry; the tally goes back to what the server actually holds.
+    member.position = had;
+    member._pending = position;
+    member._pendingDrawer = !!fromDrawer;
+    setRowState(wrap, member, 'failed');
+    paintTally();
+    updateGroupHeads();
+    return;
+  }
+  member.at = new Date().toISOString();
+  member.by = me.name;
+  savedHere.add(member.person_id);
+  delete wrap.querySelector('.member').dataset.tick;   // draw the tick this time
+  setRowState(wrap, member, 'saved');
+}
+
+// ── committees ──────────────────────────────────────────────────────
+const PLAN_LABELS = {
+  no_current_plan: 'No current plan', planning_hearing: 'Planning a hearing',
+  hearing_scheduled: 'Hearing scheduled', planning_to_work: 'Planning to work it',
+  working_amendments: 'Working amendments', waiting_on_information: 'Waiting on information',
+  possible_action: 'Possible action', final_action_planned: 'Final action planned',
+  holding: 'Holding', in_the_drawer: 'In the drawer'
+};
+
+async function loadCommittees(){
+  const box = $('#committees'); box.textContent = '';
+  box.appendChild(skeletonCards(3, 2));
+  const r = await call('committee_board', {});
+  box.textContent = '';
+  if (!r.ok){ box.appendChild(el('div', 'empty', r.error || 'Could not load')); return; }
+  const list = r.data.committees || [];
+  if (!list.length){
+    box.appendChild(el('div', 'empty',
+      'No committees are linked to your code yet. The office links a code to a person '
+      + 'with: access_codes.py link'));
+    return;
+  }
+  list.forEach(c => {
+    const card = el('div', 'card');
+    card.appendChild(el('h2', null, c.title));
+    if (!c.bills.length){ card.appendChild(el('div', 'empty', 'No bills referred yet.')); }
+    c.bills.slice(0, 40).forEach(b => {
+      const d = el('div', 'bill');
+      const head = el('div');
+      head.appendChild(el('b', null, b.bill_no));
+      const p = el('span', 'pill' + (b.needs_attention ? ' attn' : ''),
+                   PLAN_LABELS[b.plan] || 'No current plan');
+      p.style.marginLeft = '8px';
+      head.appendChild(p);
+      d.appendChild(head);
+      if (b.title) d.appendChild(el('div', 'title', b.title));
+      const sel = el('select');
+      Object.entries(PLAN_LABELS).forEach(([k, label]) => {
+        const o = el('option', null, label); o.value = k;
+        if (b.plan === k) o.selected = true;
+        sel.appendChild(o);
+      });
+      sel.onchange = async () => {
+        const res = await call('plan_save', {bill_no: b.bill_no, committee_kpid: c.kpid,
+                                             status: sel.value});
+        toast(res.ok ? b.bill_no + ' updated' : (res.error || 'Not saved'));
+        if (res.ok) p.textContent = PLAN_LABELS[sel.value];
+      };
+      d.appendChild(sel);
+      card.appendChild(d);
+    });
+    box.appendChild(card);
+  });
+}
+
+// ── board ───────────────────────────────────────────────────────────
+// ── one bill, everything about it ───────────────────────────────────
+// Reached from every bill number anywhere on the site: location.hash = '#bill/HB2001'.
+// Not a tab, because it is never "where you are" - it is where you went from somewhere,
+// and the back link takes you back to that somewhere.
+let billReturnTab = 'home';
+
+function billLink(no){ return '#bill/' + encodeURIComponent(no); }
+
+async function openBill(no){
+  const wrap = $('#billBody');
+  $('#tab-bill').hidden = false;
+  ['home', 'whip', 'committee', 'board', 'members', 'import'].forEach(n => { $('#tab-' + n).hidden = true; });
+  $('#tab-member').hidden = true;
+  document.querySelectorAll('#tabs button').forEach(b => b.setAttribute('aria-selected', 'false'));
+  moveInk();
+  wrap.textContent = '';
+  // The shape of the page, in grey, while the three answers are on their way.
+  wrap.appendChild(el('div', 'skel-bar h1'));
+  wrap.appendChild(skeletonCards(1, 6));
+
+  // Three questions at once rather than one after another: on a hall's wifi the
+  // difference between 1.2s and 3.6s is whether anyone waits for it.
+  // One request for the whole screen: three separate ones cost three Retool runs, and
+  // runs are rationed (manual 13a). api_bill_page() in schema/19 answers all three.
+  const page = await call('bill_page', {bill_no: no});
+  const bill = page.ok ? {ok: true, data: page.data.bill} : page;
+  const whip = page.ok ? {ok: true, data: {tally: page.data.whip_tally || {}}} : page;
+  const feed = page.ok ? {ok: true, data: page.data.feed || {events: []}} : page;
+  wrap.textContent = '';
+  if (!bill.ok || !bill.data){
+    wrap.appendChild(el('div', 'empty', 'No bill ' + no + ' in this session.'));
+    return;
+  }
+  const b = bill.data;
+
+  // ── header
+  const head = el('div', 'bill-head');
+  const h = el('h1', null, b.bill_no);
+  head.appendChild(h);
+  if (b.bill_no){
+    const star = el('button', 'star');
+    const key = b.biennium + '|' + b.bill_no;
+    const on = () => (me.follows || []).some(f => f.subject_type === 'bill' && f.subject_key === key);
+    star.textContent = on() ? '★' : '☆';
+    star.title = 'Follow this bill';
+    star.onclick = async () => {
+      const was = on();
+      star.textContent = was ? '☆' : '★';
+      const r = await call(was ? 'unfollow' : 'follow', {subject_type: 'bill', subject_key: key});
+      if (r.ok) me.follows = r.data || []; else star.textContent = was ? '★' : '☆';
+    };
+    head.appendChild(star);
+  }
+  wrap.appendChild(head);
+  if (b.short_title) wrap.appendChild(el('p', 'sub', b.short_title));
+  const sponsorLine = billSponsorsLine(b);
+  if (sponsorLine) wrap.appendChild(sponsorLine);
+
+  // ── the facts, in one card
+  const facts = el('div', 'card');
+  const grid = el('div', 'facts');
+  const fact = (label, value) => {
+    const d = el('div');
+    d.appendChild(el('small', null, label));
+    d.appendChild(el('div', 'factv', value || '—'));
+    grid.appendChild(d);
+  };
+  fact('Official status', b.official_status);
+  fact('Committee', b.committee);
+  fact('Chair plan', b.chair_plan
+    ? (PLAN_LABELS[b.chair_plan] || b.chair_plan)
+        + (b.firmness ? ' (' + b.firmness + ')' : '') : null);
+  fact('Expected hearing', b.expected_hearing_date || null);
+  fact('Expected action', b.expected_action_date || null);
+  fact('Brief', b.brief_status || 'not started');
+  fact('Deadline', b.deadline || null);
+  facts.appendChild(grid);
+
+  // The whip tally as the same bar the whip page uses, so the same picture means the
+  // same thing on both screens.
+  if (whip.ok && whip.data && whip.data.tally && Object.keys(whip.data.tally).length){
+    const t = whip.data.tally;
+    const bar = el('div', 'tally');
+    POS.forEach(([k]) => {
+      const n = t[k] || 0; if (!n) return;
+      const sp = el('span', 's-' + k, n); sp.style.flex = n + ' 1 0'; bar.appendChild(sp);
+    });
+    if (bar.children.length){
+      facts.appendChild(el('small', null, 'Whip count'));
+      facts.appendChild(bar);
+    }
+  }
+
+  const acts = el('div');
+  acts.style.cssText = 'display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;align-items:center';
+  const whipBtn = el('button', 'next-step');
+  whipBtn.appendChild(el('span', 'gem'));
+  whipBtn.appendChild(document.createTextNode('Whip this bill'));
+  whipBtn.appendChild(el('span', 'gem'));
+  whipBtn.onclick = () => {
+    location.hash = '';
+    $('#whipBill').value = b.bill_no;
+    show('whip');
+    loadWhip();
+  };
+  acts.appendChild(whipBtn);
+
+  // Flagging is leadership's own mark on a bill. The button is hidden for everyone
+  // else as a courtesy; the refusal that matters is in api_flag_save().
+  if (me.roles.includes('leadership') || me.roles.includes('leadership_staff')){
+    const flag = el('button', 'task-done', b.needs_attention ? 'Flagged' : 'Flag');
+    flag.onclick = () => flagForm(facts, b);
+    acts.appendChild(flag);
+  }
+  facts.appendChild(acts);
+  wrap.appendChild(facts);
+
+  // ── how every member voted on it
+  const votesCard = billVotesCard(b);
+  if (votesCard) wrap.appendChild(votesCard);
+
+  // ── what has happened to it
+  const feedCard = el('div', 'card');
+  feedCard.appendChild(el('h2', null, 'What has happened'));
+  const fbox = el('div');
+  const evs = (feed.ok && feed.data.events) ? feed.data.events : [];
+  if (evs.length) renderInto(fbox, evs, false, 50);
+  else fbox.appendChild(el('div', 'empty', 'Nothing recorded yet.'));
+  feedCard.appendChild(fbox);
+  wrap.appendChild(feedCard);
+
+  // ── how the chairman's intent moved
+  if ((b.plan_history || []).length){
+    const ph = el('div', 'card');
+    ph.appendChild(el('h2', null, 'Plan history'));
+    b.plan_history.forEach(x => {
+      const d = el('div', 'bill');
+      d.appendChild(el('b', null, PLAN_LABELS[x.status] || x.status));
+      const bits = [x.firmness, x.hearing ? 'hearing ' + x.hearing : null,
+                    x.action ? 'action ' + x.action : null,
+                    x.by, x.at ? new Date(x.at).toLocaleDateString() : null]
+                   .filter(Boolean).join(' · ');
+      d.appendChild(el('div', 'title', bits));
+      if (x.note) d.appendChild(el('div', 'title', x.note));
+      ph.appendChild(d);
+    });
+    wrap.appendChild(ph);
+  }
+}
+
+function flagForm(card, b){
+  if (card.querySelector('.flagform')) return;
+  const f = el('div', 'flagform drawer');
+  const mk = (label, type, value) => {
+    f.appendChild(el('label', null, label));
+    const i = el('input'); i.type = type; if (type === 'checkbox') i.checked = !!value;
+    else i.value = value || '';
+    if (type === 'checkbox') i.style.width = 'auto';
+    f.appendChild(i);
+    return i;
+  };
+  const attn = mk('Needs attention', 'checkbox', b.needs_attention);
+  const ready = mk('Floor ready', 'checkbox', b.floor_ready);
+  const dl = mk('Deadline', 'date', b.deadline);
+  const note = mk('Note', 'text', b.note);
+  const save = el('button', 'next-step');
+  save.style.marginTop = '12px';
+  save.appendChild(el('span', 'gem'));
+  save.appendChild(document.createTextNode('Save'));
+  save.appendChild(el('span', 'gem'));
+  save.onclick = async () => {
+    const r = await call('flag_save', {bill_no: b.bill_no, needs_attention: attn.checked,
+                                       floor_ready: ready.checked, deadline: dl.value,
+                                       note: note.value});
+    toast(r.ok ? 'Saved' : (r.error || 'Not saved'));
+    if (r.ok){ f.remove(); openBill(b.bill_no); }
+  };
+  f.appendChild(save);
+  card.appendChild(f);
+}
+
+// The hash is the whole router. Back and forward work, a link can be sent to someone,
+// and nothing here needs a build step.
+function routeHash(){
+  const h = location.hash || '';
+  const m = h.match(/^#bill\/(.+)$/);
+  const lg = h.match(/^#member\/(\d+)(?:\/(b\d{4}_\d{2}))?$/);
+  if (m){ openBill(decodeURIComponent(m[1]).toUpperCase()); }
+  else if (lg){ openLegislator(Number(lg[1]), lg[2]); }
+  else if (!$('#tab-bill').hidden || !$('#tab-member').hidden){
+    $('#tab-bill').hidden = true; $('#tab-member').hidden = true; show(billReturnTab);
+  }
+}
+window.addEventListener('hashchange', routeHash);
+
+// ── the board ───────────────────────────────────────────────────────
+// One table, not five stacked lists: the question a leader asks is "what is happening
+// with this bill", and five lists answer "which list is it in" instead. A bill that is
+// flagged AND being whipped AND owes a brief appeared three times and looked like three
+// bills.
+const BOARD_COLS = [
+  {key: 'tags',     label: '',          get: r => r.tags.join(' ')},
+  {key: 'bill_no',  label: 'Bill',      get: r => r.bill_no},
+  {key: 'short_title', label: 'Title',  get: r => r.short_title || ''},
+  {key: 'where',    label: 'Where it is', get: r => r.committee || r.official_status || ''},
+  {key: 'plan',     label: 'Plan',      get: r => PLAN_LABELS[r.chair_plan] || ''},
+  {key: 'whip',     label: 'Whip',      get: r => (r.yes || 0) - (r.no || 0)},
+  {key: 'brief',    label: 'Brief',     get: r => r.brief_status || ''},
+  {key: 'deadline', label: 'Deadline',  get: r => r.deadline || ''},
+  {key: 'updated',  label: 'Updated',   get: r => r.updated || ''}
+];
+let boardRows = [];
+let boardSort = null;
+
+async function loadBoard(){
+  const box = $('#board'); box.textContent = '';
+  box.appendChild(skeletonBars(7));
+  const r = await call('board', {});
+  box.textContent = '';
+  if (!r.ok){
+    box.appendChild(el('div', 'empty', r.error === 'leadership only'
+      ? 'The board is for leadership.' : (r.error || 'Could not load')));
+    return;
+  }
+  const d = r.data;
+  const byBill = new Map();
+  const add = (rows, tag) => (rows || []).forEach(x => {
+    const cur = byBill.get(x.bill_no) || {tags: [], _rank: 9};
+    Object.entries(x).forEach(([k, v]) => { if (v != null && cur[k] == null) cur[k] = v; });
+    if (!cur.tags.includes(tag)) cur.tags.push(tag);
+    cur.updated = cur.plan_updated_at || cur.whip_updated_at || cur.updated || null;
+    byBill.set(x.bill_no, cur);
+  });
+  // Order of these calls is the default sort: what needs a decision first.
+  add(d.attention, 'Attention');
+  add(d.briefs_outstanding, 'Brief due');
+  add(d.whip_active, 'Whip');
+  add(d.moving, 'Moving');
+  add(d.drawer, 'Drawer');
+  let rank = 0;
+  ['Attention', 'Brief due', 'Whip', 'Moving', 'Drawer'].forEach(tag => {
+    rank++;
+    byBill.forEach(v => { if (v.tags[0] === tag && v._rank === 9) v._rank = rank; });
+  });
+  boardRows = [...byBill.values()];
+  boardRows.sort((a, b) => a._rank - b._rank
+    || String(a.floor_eligible_at || a.whip_updated_at || '').localeCompare(
+       String(b.floor_eligible_at || b.whip_updated_at || ''))
+    || String(a.bill_no).localeCompare(String(b.bill_no)));
+  boardSort = null;
+  paintBoard();
+}
+
+function paintBoard(){
+  const box = $('#board'); box.textContent = '';
+  if (!boardRows.length){
+    box.appendChild(el('div', 'empty', 'Nothing on the board yet.'));
+    return;
+  }
+  const scroll = el('div', 'scroll');
+  const t = el('table', 'board');
+  const thead = el('thead'); const trh = el('tr');
+  BOARD_COLS.forEach(c => {
+    const th = el('th', null, c.label);
+    th.tabIndex = 0;
+    th.onclick = () => sortBoard(c.key);
+    th.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); sortBoard(c.key); } };
+    if (boardSort && boardSort.key === c.key) th.classList.add('sorted');
+    trh.appendChild(th);
+  });
+  thead.appendChild(trh); t.appendChild(thead);
+  const tb = el('tbody');
+  boardRows.forEach(r => {
+    const tr = el('tr');
+    BOARD_COLS.forEach(c => {
+      const td = el('td');
+      if (c.key === 'tags'){
+        r.tags.forEach(tag => {
+          const p = el('span', 'pill' + (tag === 'Attention' ? ' attn' : ''), tag);
+          p.style.marginRight = '4px';
+          td.appendChild(p);
+        });
+      } else if (c.key === 'bill_no'){
+        const a = el('a', 'no', r.bill_no);
+        a.href = billLink(r.bill_no);
+        td.appendChild(a);
+      } else if (c.key === 'whip'){
+        const t2 = ['yes', 'lean_yes', 'undecided', 'lean_no', 'no'];
+        const any = t2.some(k => r[k]);
+        if (any){
+          const bar = el('div', 'tally minibar');
+          t2.forEach(k => {
+            const n = r[k] || 0; if (!n) return;
+            const sp = el('span', 's-' + k, n); sp.style.flex = n + ' 1 0'; bar.appendChild(sp);
+          });
+          td.appendChild(bar);
+        }
+      } else if (c.key === 'updated'){
+        td.textContent = r.updated ? new Date(r.updated).toLocaleDateString() : '';
+      } else {
+        td.textContent = c.get(r);
+      }
+      tr.appendChild(td);
+    });
+    tb.appendChild(tr);
+  });
+  t.appendChild(tb);
+  scroll.appendChild(t);
+  box.appendChild(scroll);
+  box.appendChild(el('div', 'sub', `${boardRows.length} bills`));
+}
+
+function sortBoard(key){
+  const col = BOARD_COLS.find(c => c.key === key);
+  const dir = (boardSort && boardSort.key === key && boardSort.dir === 1) ? -1 : 1;
+  boardSort = {key, dir};
+  boardRows.sort((a, b) => {
+    const x = col.get(a), y = col.get(b);
+    if (typeof x === 'number' && typeof y === 'number') return (x - y) * dir;
+    return String(x).localeCompare(String(y)) * dir;
+  });
+  paintBoard();
+}
+
+// ── a bill's sponsors and roll calls ────────────────────────────────
+// The other half of the legislator page: on a bill, who put it in and how every member
+// voted on it, each name a link to everything about that member. The answer carries
+// votes as lists of person ids and each name once (api_bill in schema/14_api.sql).
+function billSponsorsLine(b){
+  const sp = b.sponsors || [];
+  if (!sp.length) return null;
+  const p = el('p', 'sub');
+  p.appendChild(document.createTextNode('Sponsored by '));
+  sp.forEach((s, i) => {
+    if (i) p.appendChild(document.createTextNode(i === sp.length - 1 ? ' and ' : ', '));
+    // "Representative Fairchild" is how the bill prints it; the link is the person.
+    const name = String(s.name || '').replace(/^(Representative|Senator)\s+/, '');
+    if (s.person_id){
+      const a = el('a', 'who-link', name); a.href = memberLink(s.person_id);
+      p.appendChild(a);
+    } else p.appendChild(document.createTextNode(name));
+  });
+  return p;
+}
+
+function billVotesCard(b){
+  const rcs = b.roll_calls || [];
+  if (!rcs.length) return null;
+  const voters = b.voters || {};
+  const card = el('div', 'card');
+  card.appendChild(el('h2', null, `How they voted (${rcs.length} roll call${rcs.length > 1 ? 's' : ''})`));
+
+  const names = ids => ids.map(id => ({id, ...(voters[id] || {n: 'Member ' + id, l: String(id), p: ''})}))
+    .sort((x, y) => (x.l || x.n).localeCompare(y.l || y.n));
+  const byParty = ids => {
+    const t = {};
+    ids.forEach(id => { const p = (voters[id] || {}).p || '?'; t[p] = (t[p] || 0) + 1; });
+    return t;
+  };
+  const nameList = (label, ids, colour) => {
+    const box = el('div', 'rc-group');
+    const h = el('div', 'rc-head');
+    const dot = el('span', 'rc-dot'); dot.style.background = colour;
+    h.appendChild(dot);
+    h.appendChild(el('b', null, `${label} (${ids.length})`));
+    box.appendChild(h);
+    const list = el('div', 'rc-names');
+    names(ids).forEach((v, i) => {
+      if (i) list.appendChild(document.createTextNode(', '));
+      const a = el('a', 'who-link', (v.l || v.n) + (v.p ? ' (' + v.p + ')' : ''));
+      a.href = memberLink(v.id);
+      a.title = v.n;
+      list.appendChild(a);
+    });
+    box.appendChild(list);
+    return box;
+  };
+
+  // Newest first: the last vote is the one a leader is asking about.
+  [...rcs].reverse().forEach((r, idx) => {
+    const det = el('details', 'rc');
+    // The latest vote opens by itself; the rest stay folded so a bill with twenty roll
+    // calls is still one screen.
+    if (idx === 0) det.open = true;
+    const sum = el('summary');
+    const when = r.date ? new Date(r.date + 'T12:00:00').toLocaleDateString([], {month: 'short', day: 'numeric', year: 'numeric'}) : '';
+    sum.appendChild(el('b', null, `${r.yeas}–${r.nays}`));
+    sum.appendChild(document.createTextNode(' ' + (r.motion || '') + ' '));
+    const sub = el('span', 'rc-when');
+    const py = byParty(r.yea || []), pn = byParty(r.nay || []);
+    const split = ['R', 'D'].filter(k => py[k] || pn[k])
+      .map(k => `${k} ${py[k] || 0}–${pn[k] || 0}`).join(', ');
+    sub.textContent = [initCap(r.chamber), when, split].filter(Boolean).join(' · ');
+    sum.appendChild(sub);
+    det.appendChild(sum);
+    // No first: on a vote that passed, the no list is the short list worth reading.
+    det.appendChild(nameList('No', r.nay || [], 'var(--no)'));
+    if ((r.other || []).length) det.appendChild(nameList('Did not vote', r.other || [], 'var(--undecided)'));
+    det.appendChild(nameList('Yes', r.yea || [], 'var(--yes)'));
+    card.appendChild(det);
+  });
+  return card;
+}
+
+function initCap(s){ s = String(s || ''); return s.charAt(0).toUpperCase() + s.slice(1); }
+
+// ── legislators ─────────────────────────────────────────────────────
+// A list to pick from, and one page per legislator with everything: who they are, their
+// committees, the bills they sponsored, every roll call they voted on, and - for the
+// people allowed to see it - where they stand with the whip. The whip rule is applied
+// in api_member() (schema/19_member_profile.sql); this page draws what it is given.
+let legList = null;          // the sitting legislators, fetched once per visit
+let legChamber = 'all';
+let legData = null;          // the legislator on screen
+let legVoteFilter = 'all';
+let legVotesShown = 60;
+
+const VOTE_WORD = {yea: 'Yes', nay: 'No', absent_not_voting: 'Absent', present_passing: 'Pass'};
+const VOTE_COLOUR = {yea: 'var(--yes)', nay: 'var(--no)',
+                     absent_not_voting: 'var(--undecided)', present_passing: 'var(--undecided)'};
+
+function memberLink(pid){ return '#member/' + encodeURIComponent(pid); }
+
+// "R-109, Russell County" - how people in the building actually refer to a member.
+function legLine(m){
+  const party = (m.party || '').charAt(0);
+  const bits = [];
+  if (party || m.district) bits.push((party ? party + '-' : '') + (m.district || ''));
+  bits.push(m.chamber === 'senate' ? 'Senate' : 'House');
+  if (m.county) bits.push(m.county + ' County');
+  return bits.join(' · ');
+}
+
+async function loadLegislators(){
+  const box = $('#legList');
+  if (!legList){
+    box.textContent = '';
+    box.appendChild(el('div', 'empty', 'Loading…'));
+    const r = await call('members', {});
+    if (!r.ok){ box.textContent = ''; box.appendChild(el('div', 'empty', r.error || 'Could not load')); return; }
+    legList = r.data.members || [];
+  }
+  paintLegislators();
+}
+
+function paintLegislators(){
+  const box = $('#legList'); box.textContent = '';
+  const q = ($('#legFilter').value || '').trim().toLowerCase();
+  const rows = legList.filter(m =>
+    (legChamber === 'all' || m.chamber === legChamber)
+    && (!q || (m.name || '').toLowerCase().includes(q)
+            || (m.county || '').toLowerCase().includes(q)
+            || String(m.district || '') === q));
+  $('#legCount').textContent = `${rows.length} of ${legList.length} sitting legislators`;
+  if (!rows.length){ box.appendChild(el('div', 'empty', 'No one matches that.')); return; }
+  rows.forEach(m => {
+    const a = el('a', 'leg-row');
+    a.href = memberLink(m.person_id);
+    const surname = m.last_name || (m.name || '').split(' ').slice(-1)[0];
+    const first = m.first_name || '';
+    a.appendChild(el('b', null, surname + (first ? ', ' + first : '')));
+    a.appendChild(el('span', null, legLine(m)));
+    box.appendChild(a);
+  });
+}
+
+function hideAllScreens(){
+  ['home', 'whip', 'committee', 'board', 'members', 'import'].forEach(n => {
+    const s = $('#tab-' + n); if (s) s.hidden = true;
+  });
+  $('#tab-bill').hidden = true;
+  $('#tab-member').hidden = true;
+  document.querySelectorAll('#tabs button').forEach(b => b.setAttribute('aria-selected', 'false'));
+  if (typeof moveInk === 'function') moveInk();
+}
+
+async function openLegislator(pid, biennium){
+  hideAllScreens();
+  $('#tab-member').hidden = false;
+  const wrap = $('#memberBody');
+  wrap.textContent = '';
+  wrap.appendChild(el('div', 'skel-bar h1'));
+  wrap.appendChild(el('div', 'skel-bar'));
+  window.scrollTo(0, 0);
+  // One Retool run for the whole screen (api_member_page in schema/19), not two.
+  const r = await call('member_page', biennium ? {person_id: pid, biennium} : {person_id: pid});
+  const feed = r.ok ? {ok: true, data: r.data.feed || {events: []}} : r;
+  wrap.textContent = '';
+  if (!r.ok){ wrap.appendChild(el('div', 'empty', r.error || 'Could not load that legislator.')); return; }
+  legData = r.data;
+  legVoteFilter = 'all';
+  legVotesShown = 60;
+  const d = legData, p = d.person;
+
+  // ── who they are
+  const head = el('div', 'bill-head');
+  head.appendChild(el('h1', null, p.name));
+  const key = String(p.person_id);
+  const followed = () => (me.follows || []).some(f => f.subject_type === 'person' && f.subject_key === key);
+  const star = el('button', 'star', followed() ? '★' : '☆');
+  star.title = 'Follow this legislator';
+  star.setAttribute('aria-label', 'Follow this legislator');
+  star.onclick = async () => {
+    const was = followed();
+    star.textContent = was ? '☆' : '★';
+    const f = await call(was ? 'unfollow' : 'follow', {subject_type: 'person', subject_key: key});
+    if (f.ok) me.follows = f.data || []; else { star.textContent = was ? '★' : '☆'; toast(f.error || 'Not saved'); }
+  };
+  head.appendChild(star);
+  wrap.appendChild(head);
+  const title = (p.chamber === 'senate' ? 'Senator' : 'Representative')
+    + (p.party ? ' · ' + p.party : '') + (p.district ? ' · District ' + p.district : '')
+    + (p.county ? ' · ' + p.county + ' County' : '');
+  wrap.appendChild(el('p', 'sub', title));
+  const contact = el('p', 'sub');
+  if (p.occupation) contact.appendChild(document.createTextNode(p.occupation));
+  if (p.email){
+    if (p.occupation) contact.appendChild(document.createTextNode(' · '));
+    const a = el('a', null, p.email); a.href = 'mailto:' + p.email;
+    contact.appendChild(a);
+  }
+  if (p.status && p.status !== 'Active') contact.appendChild(el('b', null, ' · ' + p.status));
+  if (contact.childNodes.length) wrap.appendChild(contact);
+
+  // A member who served more than one session: switch between them.
+  if ((d.sessions || []).length > 1){
+    const seg = el('div', 'seg');
+    seg.setAttribute('role', 'tablist');
+    seg.style.marginBottom = '8px';
+    d.sessions.forEach(b => {
+      const btn = el('button', null, b.replace('b', '').replace('_', '–'));
+      btn.setAttribute('aria-selected', String(b === d.biennium));
+      btn.onclick = () => { if (b !== d.biennium) openLegislator(pid, b); };
+      seg.appendChild(btn);
+    });
+    wrap.appendChild(seg);
+  }
+
+  // ── the numbers
+  const v = d.votes || [];
+  const n = k => v.filter(x => x.vote === k).length;
+  const decisive = v.filter(x => x.with_party !== null && x.with_party !== undefined);
+  const withParty = decisive.filter(x => x.with_party).length;
+  const tiles = el('div', 'leg-tiles');
+  const tile = (num, label) => {
+    const t = el('div', 'count', String(num));
+    t.appendChild(el('small', null, label));
+    tiles.appendChild(t);
+  };
+  tile(v.length, 'Roll calls');
+  tile(n('yea'), 'Voted yes');
+  tile(n('nay'), 'Voted no');
+  tile(n('absent_not_voting') + n('present_passing'), 'Did not vote');
+  tile(decisive.length ? Math.round(100 * withParty / decisive.length) + '%' : '–', 'With party');
+  tile((d.sponsored || []).length, 'Bills sponsored');
+  const statCard = el('div', 'card');
+  statCard.appendChild(tiles);
+  wrap.appendChild(statCard);
+
+  // ── where they stand (only for those allowed to see it)
+  if (d.can_see_positions){
+    const c = el('div', 'card');
+    c.appendChild(el('h2', null, 'Where they stand'));
+    if (!(d.positions || []).length){
+      c.appendChild(el('div', 'empty', 'No whip conversations recorded yet.'));
+    } else {
+      d.positions.forEach(x => {
+        const row = el('div', 'bill');
+        const top = el('div');
+        const a = el('a', 'no', x.bill_no); a.href = billLink(x.bill_no);
+        top.appendChild(a);
+        top.appendChild(document.createTextNode(' '));
+        const pos = el('b', null, String(x.position || '').replace(/_/g, ' '));
+        pos.style.color = POS_COLOUR[x.position] || 'inherit';
+        top.appendChild(pos);
+        if (x.certainty && x.certainty !== 'unknown') top.appendChild(document.createTextNode(' · ' + x.certainty));
+        if (x.follow_up) top.appendChild(document.createTextNode(' · follow up'));
+        row.appendChild(top);
+        const sub = [x.note, x.by, x.at ? new Date(x.at).toLocaleDateString() : null].filter(Boolean).join(' · ');
+        if (sub) row.appendChild(el('div', 'title', sub));
+        c.appendChild(row);
+      });
+    }
+    wrap.appendChild(c);
+  }
+
+  // ── committees
+  const cc = el('div', 'card');
+  cc.appendChild(el('h2', null, 'Committees'));
+  if (!(d.committees || []).length) cc.appendChild(el('div', 'empty', 'None this session.'));
+  (d.committees || []).forEach(x => {
+    const row = el('div', 'bill');
+    row.appendChild(el('b', null, x.title));
+    const role = String(x.role || '').replace(/_/g, ' ');
+    if (role && role !== 'member') {
+      const pill = el('span', 'pill', role); pill.style.marginLeft = '8px'; row.appendChild(pill);
+    }
+    cc.appendChild(row);
+  });
+  wrap.appendChild(cc);
+
+  // ── bills they sponsored
+  const sc = el('div', 'card');
+  const sp = d.sponsored || [];
+  sc.appendChild(el('h2', null, `Bills sponsored (${sp.length})`));
+  if (!sp.length) sc.appendChild(el('div', 'empty', 'None this session.'));
+  sp.forEach(x => {
+    const row = el('div', 'bill');
+    const top = el('div');
+    const a = el('a', 'no', x.bill_no); a.href = billLink(x.bill_no);
+    top.appendChild(a);
+    if (x.lead){ const l = el('span', 'pill', 'lead sponsor'); l.style.marginLeft = '8px'; top.appendChild(l); }
+    if (x.status) top.appendChild(el('span', 'leg-status', x.status));
+    row.appendChild(top);
+    if (x.title) row.appendChild(el('div', 'title', x.title));
+    sc.appendChild(row);
+  });
+  wrap.appendChild(sc);
+
+  // ── how they voted
+  const vc = el('div', 'card');
+  vc.appendChild(el('h2', null, 'Voting record'));
+  const filt = el('input');
+  filt.id = 'legVoteQ';
+  filt.placeholder = 'Find a bill or a motion';
+  filt.autocomplete = 'off';
+  filt.style.marginBottom = '8px';
+  filt.oninput = () => { legVotesShown = 60; paintLegVotes(); };
+  vc.appendChild(filt);
+  const chips = el('div', 'chips');
+  chips.id = 'legVoteChips';
+  [['all', 'All'], ['yea', 'Yes'], ['nay', 'No'], ['absent', 'Did not vote'],
+   ['against', 'Against party']].forEach(([k, label]) => {
+    const b = el('button', null, label);
+    b.dataset.k = k;
+    b.setAttribute('aria-pressed', String(k === legVoteFilter));
+    b.onclick = () => {
+      legVoteFilter = k; legVotesShown = 60;
+      [...chips.children].forEach(x => x.setAttribute('aria-pressed', String(x.dataset.k === k)));
+      paintLegVotes();
+    };
+    chips.appendChild(b);
+  });
+  vc.appendChild(chips);
+  const list = el('div'); list.id = 'legVotes'; vc.appendChild(list);
+  const more = el('button', 'more', 'Show more'); more.id = 'legVotesMore';
+  more.onclick = () => { legVotesShown += 60; paintLegVotes(); };
+  vc.appendChild(more);
+  wrap.appendChild(vc);
+  paintLegVotes();
+
+  // ── what has happened
+  const fc = el('div', 'card');
+  fc.appendChild(el('h2', null, 'Recent activity'));
+  const fb = el('div');
+  const evs = (feed.ok && feed.data.events) ? feed.data.events : [];
+  if (evs.length) renderInto(fb, evs, false, 30);
+  else fb.appendChild(el('div', 'empty', 'Nothing recorded yet.'));
+  fc.appendChild(fb);
+  wrap.appendChild(fc);
+}
+
+function paintLegVotes(){
+  const box = $('#legVotes'); if (!box || !legData) return;
+  box.textContent = '';
+  const q = ($('#legVoteQ').value || '').trim().toLowerCase();
+  const titles = legData.titles || {};
+  const rows = (legData.votes || []).filter(x => {
+    if (legVoteFilter === 'yea' && x.vote !== 'yea') return false;
+    if (legVoteFilter === 'nay' && x.vote !== 'nay') return false;
+    if (legVoteFilter === 'absent' && (x.vote === 'yea' || x.vote === 'nay')) return false;
+    if (legVoteFilter === 'against' && x.with_party !== false) return false;
+    if (!q) return true;
+    return (x.bill_no || '').toLowerCase().replace(/\s/g, '').includes(q.replace(/\s/g, ''))
+        || (x.motion || '').toLowerCase().includes(q)
+        || (titles[x.bill_no] || '').toLowerCase().includes(q);
+  });
+  if (!rows.length){ box.appendChild(el('div', 'empty', 'No votes match that.')); }
+  rows.slice(0, legVotesShown).forEach(x => {
+    const row = el('div', 'leg-vote');
+    const pill = el('span', 'leg-vote-pill', VOTE_WORD[x.vote] || x.vote);
+    pill.style.background = VOTE_COLOUR[x.vote] || 'var(--undecided)';
+    row.appendChild(pill);
+    const body = el('div', 'leg-vote-body');
+    const top = el('div');
+    if (x.bill_no){
+      const a = el('a', 'no', x.bill_no); a.href = billLink(x.bill_no);
+      top.appendChild(a);
+      top.appendChild(document.createTextNode(' '));
+    }
+    top.appendChild(document.createTextNode(x.motion || ''));
+    body.appendChild(top);
+    const meta = [x.date ? new Date(x.date + 'T12:00:00').toLocaleDateString() : null,
+                  (x.yeas != null ? `${x.yeas}–${x.nays}` : null)];
+    // Against their own party is the thing a whip wants to spot at a glance.
+    if (x.with_party === false) meta.push('against party (' + (VOTE_WORD[x.party_way] || '') + ')');
+    body.appendChild(el('div', 'title', meta.filter(Boolean).join(' · ')));
+    if (titles[x.bill_no]) body.appendChild(el('div', 'title', titles[x.bill_no]));
+    row.appendChild(body);
+    box.appendChild(row);
+  });
+  $('#legVotesMore').hidden = rows.length <= legVotesShown;
+}
+
+// ── import: notes -> an LLM -> Skywalker ─────────────────────────────
+// The page does three small things and the database does the rest: it hands the
+// person instructions for the AI, reads the AI's answer out of whatever it was wrapped
+// in, and draws the database's verdict on each item. Finding members and committees,
+// deciding who may add what, and undoing are all in schema/18_llm_import.sql. Nothing
+// here decides anything.
+let impVocab = null;
+let impBatch = null;         // the batch on screen, exactly as the database last described it
+
+const IMP_KIND = {whip: 'Whip count', plan: 'Committee plan', flag: 'Flag',
+                  note: 'Note', brief: 'Brief draft'};
+const IMP_AUDIENCE = {
+  me:   'me = you and leadership',
+  t1:   't1 = your office only',
+  t12:  't12 = leadership',
+  t123: 't123 = leadership and committee chairs',
+  all:  'all = everyone with an access code'
+};
+
+// The instructions are built from the live lists, so the AI is told the committee
+// names and statuses the database will actually recognise.
+function buildPrompt(v){
+  const statuses = (v.plan_statuses || []).map(s => s.replace(/_/g, ' ')).join(', ');
+  const auds = (v.audiences || []).map(a => IMP_AUDIENCE[a]).filter(Boolean).join('; ');
+  return [
+    'You are helping a Kansas legislative office record information in its bill-tracking system, Skywalker.',
+    '',
+    'Read the material I paste after these instructions. Pull out every fact that fits one of the item types below. Then reply with ONE JSON object and nothing else - no explanation before or after it.',
+    '',
+    'FORMAT',
+    '{"format": "skywalker-import/1", "label": "<a short name for the material, e.g. Tax committee notes Jan 14>", "items": [ ... ]}',
+    '',
+    'ITEM TYPES - use only these. Leave out any field you are not sure of.',
+    '',
+    '1. A legislator\'s position on a bill (a whip count):',
+    '{"type": "whip", "bill": "HB 2001", "member": "Rep. Jane Smith", "position": "yes | lean yes | undecided | lean no | no | absent | no contact", "certainty": "firm | probable | soft", "note": "what they said, briefly", "amendment_sensitivity": "what would change their mind", "follow_up": true, "spoke_on": "YYYY-MM-DD"}',
+    '',
+    '2. A committee\'s plan for a bill:',
+    '{"type": "plan", "bill": "HB 2001", "committee": "<a name from COMMITTEES>", "status": "<one of PLAN STATUSES>", "firmness": "tentative | firm", "hearing": "YYYY-MM-DD", "action": "YYYY-MM-DD", "note": "..."}',
+    '',
+    '3. A flag on a bill:',
+    '{"type": "flag", "bill": "HB 2001", "needs_attention": true, "floor_ready": false, "deadline": "YYYY-MM-DD", "note": "..."}',
+    '',
+    '4. A note about ONE bill, legislator or organization - give exactly one of "bill", "member" or "organization":',
+    '{"type": "note", "member": "Sen. John Doe", "text": "...", "audience": "<one of AUDIENCES>", "occurred_on": "YYYY-MM-DD"}',
+    '',
+    '5. A bill brief (it will be saved as a draft for a person to finish):',
+    '{"type": "brief", "bill": "HB 2001", "committee": "<a name from COMMITTEES>", "plain_language": "...", "major_provisions": "...", "amendments_summary": "...", "proponent_arguments": "...", "opponent_arguments": "...", "neutral_notes": "...", "fiscal_impact": "...", "member_issues": "...", "other_notes": "..."}',
+    '',
+    'RULES',
+    '- Name bills, people, committees and organizations in words, the way the material does. Never make up an ID or number for anything.',
+    '- For legislators, include "Rep." or "Sen." and the first name whenever the material gives them.',
+    '- Dates as YYYY-MM-DD. Today is ' + v.today + '. Work out dates like "next Tuesday" from that.',
+    '- Record only what the material actually says. Never guess a position. If someone was not asked, leave them out.',
+    '- One item per fact: a meeting where six members gave positions is six whip items.',
+    '- If nothing fits, reply with "items": [].',
+    '',
+    'PLAN STATUSES: ' + statuses,
+    '',
+    'AUDIENCES (who may read a note): ' + auds,
+    '',
+    'COMMITTEES: ' + (v.committees || []).join('; '),
+    '',
+    'The material follows.',
+    ''
+  ].join('\n');
+}
+
+async function impCopy(){
+  const btn = $('#impCopy');
+  if (!impVocab){
+    btn.disabled = true;
+    const r = await call('import_vocab', {});
+    btn.disabled = false;
+    if (!r.ok){ toast(r.error || 'Could not load the instructions'); return; }
+    impVocab = r.data;
+  }
+  const text = buildPrompt(impVocab);
+  try {
+    await navigator.clipboard.writeText(text);
+    toast('Copied - paste it into the AI');
+    $('#impPrompt').hidden = true;
+  } catch {
+    // No clipboard (an old browser, or permission refused): show the text, selected,
+    // so a long-press or Ctrl+C still works.
+    const ta = $('#impPrompt');
+    ta.value = text; ta.hidden = false; ta.focus(); ta.select();
+    toast('Select all and copy');
+  }
+}
+
+// An AI rarely answers with bare JSON: it adds "Here is the JSON:" or wraps it in a
+// ```json fence. Take the outermost {...} and ignore the rest.
+function extractJson(text){
+  const s = String(text || '').replace(/```(?:json)?/gi, '');
+  const a = s.indexOf('{'), b = s.lastIndexOf('}');
+  if (a < 0 || b <= a) return null;
+  try { return JSON.parse(s.slice(a, b + 1)); } catch { return null; }
+}
+
+async function impCheck(){
+  $('#impErr').textContent = '';
+  const doc = extractJson($('#impPaste').value);
+  if (!doc){
+    $('#impErr').textContent = 'That does not look like the AI\'s answer. Paste everything it replied, including the { and }.';
+    return;
+  }
+  const btn = $('#impCheck');
+  btn.disabled = true; btn.textContent = 'Checking…';
+  const r = await call('import_submit', {data: doc});
+  btn.disabled = false; btn.textContent = 'Check it';
+  if (!r.ok){ $('#impErr').textContent = r.error || 'Could not check that.'; return; }
+  impBatch = r.data;
+  renderImport();
+  $('#impReview').scrollIntoView({behavior: 'smooth', block: 'start'});
+}
+
+function impStatus(it){
+  if (it.status === 'applied') return ['Added', 'ok'];
+  if (it.status === 'refused') return ['Not added: ' + (it.result || ''), 'bad'];
+  if (it.status === 'rejected') return ['Left out', 'muted'];
+  if (it.status === 'rolled_back') return ['Undone', 'muted'];
+  if ((it.problems || []).length) return ['Needs your choice', 'warn'];
+  return ['Ready', 'ok'];
+}
+
+function renderImport(){
+  const b = impBatch;
+  const c = b.counts || {};
+  const done = b.status !== 'pending';
+  $('#impReview').hidden = false;
+  $('#impReviewHead').textContent = done ? b.label : 'Check and add: ' + b.label;
+  const bits = [];
+  if (c.ready) bits.push(`${c.ready} ready`);
+  if (c.problems) bits.push(`${c.problems} need a choice from you`);
+  if (c.applied) bits.push(`${c.applied} added`);
+  if (c.refused) bits.push(`${c.refused} not added`);
+  $('#impReviewSub').textContent = bits.join(' · ') || 'Nothing in this import.';
+
+  const box = $('#impItems'); box.textContent = '';
+  (b.items || []).forEach(it => {
+    const row = el('div', 'imp-row');
+    const [label, tone] = impStatus(it);
+    const head = el('div', 'imp-head');
+    // A tick box on every item that could still be added, ticked: the person UNticks
+    // what the AI got wrong, rather than ticking what it got right.
+    if (it.status === 'pending' && !(it.problems || []).length){
+      const cb = el('input');
+      cb.type = 'checkbox'; cb.checked = true; cb.dataset.n = it.n;
+      cb.className = 'imp-take';
+      cb.setAttribute('aria-label', 'Include item ' + it.n);
+      head.appendChild(cb);
+    }
+    head.appendChild(el('span', 'imp-kind', IMP_KIND[it.kind] || it.kind));
+    head.appendChild(el('span', 'imp-state ' + tone, label));
+    row.appendChild(head);
+    row.appendChild(el('div', 'imp-preview', it.preview || ''));
+    (it.problems || []).forEach(pr => {
+      if (it.status !== 'pending') return;
+      const p = el('div', 'imp-problem', pr.message);
+      if ((pr.candidates || []).length){
+        const chips = el('div', 'chips');
+        pr.candidates.forEach(ca => {
+          const btn = el('button', null, ca.label);
+          btn.onclick = async () => {
+            btn.disabled = true;
+            const r = await call('import_fix', {output_id: it.output_id, field: pr.field,
+                                                choice: String(ca.id)});
+            if (r.ok){ impBatch = r.data; renderImport(); }
+            else { btn.disabled = false; toast(r.error || 'Not saved'); }
+          };
+          chips.appendChild(btn);
+        });
+        p.appendChild(chips);
+      }
+      row.appendChild(p);
+    });
+    box.appendChild(row);
+  });
+
+  const ready = (b.items || []).filter(i => i.status === 'pending' && !(i.problems || []).length).length;
+  $('#impActions').hidden = !ready || b.status === 'rejected' || b.status === 'rolled_back';
+  $('#impApply').textContent = ready === 1 ? 'Add 1 item to Skywalker' : `Add ${ready} items to Skywalker`;
+  const applied = (b.items || []).some(i => i.status === 'applied');
+  $('#impAfter').hidden = !(applied || b.status === 'rejected' || b.status === 'rolled_back');
+  $('#impUndo').hidden = !applied;
+}
+
+async function impApply(){
+  const skip = [...document.querySelectorAll('.imp-take')]
+    .filter(cb => !cb.checked).map(cb => Number(cb.dataset.n));
+  const btn = $('#impApply');
+  btn.disabled = true; btn.textContent = 'Adding…';
+  const r = await call('import_apply', {batch_id: impBatch.batch_id, skip});
+  btn.disabled = false;
+  if (!r.ok){ toast(r.error || 'Not added'); renderImport(); return; }
+  impBatch = r.data;
+  renderImport();
+  const a = r.data.just_applied || 0, n = r.data.just_refused || 0;
+  toast(n ? `${a} added, ${n} not added - see why below` : `${a} added`);
+  loadImportRecent();
+}
+
+async function impCancel(){
+  const r = await call('import_reject', {batch_id: impBatch.batch_id});
+  if (!r.ok){ toast(r.error || 'Could not cancel'); return; }
+  impBatch = r.data; renderImport(); loadImportRecent();
+  toast('Cancelled - nothing was added');
+}
+
+async function impUndo(){
+  // The one question this screen asks: undo cannot itself be undone.
+  if (!confirm('Take everything this import added back out of Skywalker?')) return;
+  const r = await call('import_rollback', {batch_id: impBatch.batch_id});
+  if (!r.ok){ toast(r.error || 'Could not undo'); return; }
+  impBatch = r.data; renderImport(); loadImportRecent();
+  toast(r.data.kept ? `${r.data.undone} undone; ${r.data.kept} left because they were changed since`
+                    : 'Undone');
+}
+
+function impReset(){
+  impBatch = null;
+  $('#impPaste').value = '';
+  $('#impReview').hidden = true;
+  $('#impErr').textContent = '';
+  $('#impPaste').focus();
+}
+
+const IMP_STATUS_WORD = {pending: 'waiting for you', approved: 'added', partial: 'partly added',
+                         rejected: 'cancelled', rolled_back: 'undone'};
+
+async function loadImportRecent(){
+  const box = $('#impRecent');
+  const r = await call('import_list', {});
+  box.textContent = '';
+  if (!r.ok){ box.appendChild(el('div', 'empty', r.error || 'Could not load')); return; }
+  if (!r.data.length){ box.appendChild(el('div', 'empty', 'No imports yet.')); return; }
+  r.data.forEach(x => {
+    const row = el('button', 'imp-recent');
+    row.appendChild(el('b', null, x.label));
+    row.appendChild(el('span', null,
+      `${IMP_STATUS_WORD[x.status] || x.status} · ${x.applied}/${x.items} added · `
+      + new Date(x.created_at).toLocaleDateString()
+      + (x.mine ? '' : ' · ' + x.submitted_by)));
+    row.onclick = async () => {
+      const g = await call('import_get', {batch_id: x.batch_id});
+      if (!g.ok){ toast(g.error || 'Could not open'); return; }
+      impBatch = g.data; renderImport();
+      $('#impReview').scrollIntoView({behavior: 'smooth', block: 'start'});
+    };
+    box.appendChild(row);
+  });
+}
+
+// ── wiring ──────────────────────────────────────────────────────────
+// A real submit, not a click handler: the submit is what makes a password manager
+// notice that a credential was used.
+$('#signinForm').addEventListener('submit', e => { e.preventDefault(); signIn($('#code').value); });
+$('#show').onchange = e => { $('#code').type = e.target.checked ? 'text' : 'password'; };
+$('#whipLoad').onclick = loadWhip;
+$('#whipChange').onclick = () => {
+  $('#whipPick').hidden = false; $('#whipOpenBar').hidden = true;
+  $('#whipBill').focus(); $('#whipBill').select();
+};
+$('#whipFilter').oninput = () => { if (whipData) paintMembers(); };
+$('#whipBill').addEventListener('keydown', e => { if (e.key === 'Enter') loadWhip(); });
+$('#signout').onclick = () => { try { localStorage.removeItem(LS.who); } catch {}; location.reload(); };
+document.querySelectorAll('#tabs button').forEach(b => b.onclick = () => show(b.dataset.tab));
+$('#impCopy').onclick = impCopy;
+$('#impCheck').onclick = impCheck;
+$('#impApply').onclick = impApply;
+$('#impCancel').onclick = impCancel;
+$('#impUndo').onclick = impUndo;
+$('#impNew').onclick = impReset;
+{ const ink = el('span', 'ink'); ink.setAttribute('aria-hidden', 'true'); $('#tabs').appendChild(ink); }
+addEventListener('resize', moveInk);
+$('#billBack').onclick = e => { e.preventDefault(); location.hash = ''; };
+$('#memberBack').onclick = e => { e.preventDefault(); location.hash = ''; };
+$('#legFilter').oninput = () => { if (legList) paintLegislators(); };
+document.querySelectorAll('#legChamberSeg button').forEach(b => b.onclick = () => {
+  legChamber = b.dataset.ch;
+  document.querySelectorAll('#legChamberSeg button').forEach(x =>
+    x.setAttribute('aria-selected', String(x === b)));
+  if (legList) paintLegislators();
+});
+document.querySelectorAll('.feed-bar .seg button').forEach(b => b.onclick = () => setScope(b.dataset.scope));
+$('#caughtUp').onclick = markCaughtUp;
+// Pressing Refresh always asks, whatever the minute says: the person wants it now.
+$('#feedRefresh').onclick = () => loadFeed(scope);
+$('#feedMore').onclick = () => { feedShown += 60; paintFeed(); };
+
+(async function start(){
+  // Signed in on this device already? Only the verifier is kept, never the code, so a
+  // stolen phone gives up no code that would work anywhere else.
+  let saved = null;
+  try { saved = JSON.parse(localStorage.getItem(LS.who) || 'null'); } catch {}
+  if (!saved || !saved.v) return;
+  V = saved.v;
+  if (saved.site) SITE_KEY = b64d(saved.site);
+  const r = await call('whoami');
+  if (r.ok){
+    me = r.data;
+    showApp();
+    // A link to a bill has to survive being sent to someone, bookmarked, or reopened
+    // after the phone locked - so the hash is honoured after sign-in, not before.
+    routeHash();
+  }
+  else { try { localStorage.removeItem(LS.who); } catch {} V = null; }
+})();
+</script>
+</body>
+</html>

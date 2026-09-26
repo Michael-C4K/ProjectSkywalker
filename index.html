@@ -1,0 +1,1837 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<!-- All data is untrusted input: legislative text, testimony presenter names, and
+     organization names all originate outside this office. The CSP is a backstop for
+     the escaping in the render path, not a substitute for it. -->
+<!-- Private site: never listed by search engines (robots.txt says the same). -->
+<meta name="robots" content="noindex, nofollow, noarchive">
+<meta http-equiv="Content-Security-Policy"
+      content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self' https://api.retool.com; img-src 'self' data:; base-uri 'none'; form-action 'none'">
+<title>Skywalker — Kansas Legislature</title>
+<style>
+/* ── themes ───────────────────────────────────────────────────────── */
+:root{
+  --bg:#eef4fb; --panel:#ffffff; --ink:#12263f; --muted:#5b7392; --line:#cfe0f2;
+  --accent:#0a84ff; --accent2:#31c8f0; --ok:#1c9e5a; --warn:#d8891a; --bad:#d0454c;
+  --shadow:0 1px 2px rgba(18,38,63,.08),0 8px 24px rgba(18,38,63,.06);
+  --radius:14px;
+}
+:root[data-theme="dark"]{
+  --bg:#0d1420; --panel:#151f30; --ink:#e6eefc; --muted:#8ba3c4; --line:#233247;
+  --accent:#4da3ff; --accent2:#31c8f0; --ok:#3ecf8e; --warn:#e8a33d; --bad:#ff6b74;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.35);
+}
+:root[data-theme="aero"]{
+  --bg:linear-gradient(170deg,#bfe9ff 0%,#e8f7ff 45%,#d3f0e0 100%);
+  --panel:rgba(255,255,255,.72); --ink:#0b3550; --muted:#3f6f8e; --line:rgba(255,255,255,.9);
+  --accent:#0aa3e0; --accent2:#5fdc8a; --ok:#12a05e; --warn:#e0891a; --bad:#e0454c;
+  --shadow:0 2px 0 rgba(255,255,255,.9) inset,0 10px 30px rgba(10,90,140,.18);
+  --radius:18px;
+}
+:root[data-theme="ticker"]{
+  --bg:#07100a; --panel:#0d1a12; --ink:#c9ffd8; --muted:#5fa87a; --line:#1c3a28;
+  --accent:#22e06a; --accent2:#9fff5f; --ok:#22e06a; --warn:#ffd34d; --bad:#ff5f5f;
+  --shadow:none; --radius:4px;
+}
+*{box-sizing:border-box}
+/* The lock screen hides nav, search and the report box with the hidden attribute; their
+   own display rules (flex, inline-block) would otherwise override it and leave them
+   showing on a page that has not been unlocked. */
+[hidden]{display:none !important}
+html,body{margin:0;padding:0}
+body{
+  background:var(--bg); color:var(--ink); min-height:100vh;
+  font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  padding-bottom:env(safe-area-inset-bottom);
+}
+:root[data-theme="ticker"] body{font-family:"SF Mono",Consolas,"Roboto Mono",monospace}
+
+header{
+  position:sticky; top:0; z-index:20; backdrop-filter:blur(10px);
+  background:color-mix(in srgb,var(--panel) 88%,transparent);
+  border-bottom:1px solid var(--line); padding:10px 14px;
+}
+.bar{display:flex;gap:10px;align-items:center;max-width:1100px;margin:0 auto}
+.brand{font-weight:700;letter-spacing:.2px;white-space:nowrap}
+.brand small{display:block;font-weight:400;font-size:11px;color:var(--muted)}
+#q{
+  flex:1;min-width:0;padding:11px 14px;border-radius:999px;border:1px solid var(--line);
+  background:var(--panel);color:var(--ink);font-size:16px; /* 16px avoids iOS zoom */
+  min-height:44px;
+}
+/* On narrow screens the brand + select squeeze the search box to ~112px. Wrapping
+   the search onto its own row keeps it usable on a phone. */
+@media(max-width:520px){
+  .bar{flex-wrap:wrap}
+  #q{order:3;flex-basis:100%}
+}
+#q:focus{outline:2px solid var(--accent);outline-offset:1px}
+/* 44px minimum on every interactive control — the office works from phones. */
+select{
+  padding:10px;border-radius:10px;border:1px solid var(--line);
+  background:var(--panel);color:var(--ink);font-size:14px;min-height:44px;
+}
+/* Bottom padding: room for the fixed "Report new notes" box, which otherwise sits on top
+   of the last item in every list on a phone. */
+main{max-width:1100px;margin:0 auto;padding:14px 14px calc(76px + env(safe-area-inset-bottom))}
+nav{display:flex;gap:6px;overflow-x:auto;padding:2px 0 10px;-webkit-overflow-scrolling:touch}
+nav button{
+  flex:0 0 auto;padding:9px 15px;border-radius:999px;border:1px solid var(--line);
+  background:var(--panel);color:var(--muted);font-size:14px;cursor:pointer;min-height:44px;
+}
+nav button.on{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+.card{
+  background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+  box-shadow:var(--shadow);padding:14px;margin-bottom:10px;
+}
+.row{display:flex;gap:10px;align-items:flex-start}
+.row>.grow{flex:1;min-width:0}
+.bill-no{font-weight:700;color:var(--accent);white-space:nowrap}
+.title{margin:2px 0 6px;font-size:14px}
+.meta{font-size:12px;color:var(--muted);display:flex;gap:10px;flex-wrap:wrap}
+.pill{
+  display:inline-block;padding:2px 9px;border-radius:999px;font-size:11px;
+  border:1px solid var(--line);color:var(--muted);
+}
+.pill.ok{color:var(--ok);border-color:var(--ok)}
+.pill.bad{color:var(--bad);border-color:var(--bad)}
+.pill.warn{color:var(--warn);border-color:var(--warn)}
+.star{
+  flex:0 0 auto;width:44px;height:44px;border:0;background:none;cursor:pointer;
+  font-size:20px;line-height:1;color:var(--muted);border-radius:10px;
+}
+.star.on{color:var(--warn)}
+.empty{text-align:center;color:var(--muted);padding:40px 16px}
+/* notes, flags, tags: the per-device annotation panel and the Notes tab */
+button.pill{cursor:pointer;font:inherit;background:transparent;color:var(--muted)}
+.pill.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.annot .flagrow{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:6px 0}
+.annot input,.annot textarea{font:inherit;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:6px 8px}
+.annot textarea{width:100%;min-height:56px;margin-top:8px;resize:vertical}
+.annot .note{border-top:1px solid var(--line);padding:6px 0;white-space:pre-wrap;font-size:14px}
+.tagx{border:none;background:none;color:inherit;cursor:pointer;padding:0 3px;font:inherit}
+.abadge{font-size:11px;color:var(--accent);margin-left:4px}
+/* tiers: access code, the always-visible report box, shared notes */
+.keybtn{white-space:nowrap;min-height:44px;padding:0 12px;font-size:13px}
+#reportbox{
+  /* It is a popover so it can sit in the top layer, above an open detail dialog - the
+     box has to be reachable at all times. inset/margin/overflow undo the popover
+     defaults, which would otherwise centre it on screen. */
+  position:fixed;inset:auto;margin:0;overflow:visible;
+  right:12px;bottom:calc(12px + env(safe-area-inset-bottom));z-index:30;
+  display:flex;gap:8px;align-items:center;padding:8px 12px;min-height:44px;cursor:pointer;
+  background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:999px;
+  box-shadow:var(--shadow);font-size:13px;user-select:none;
+}
+#reportbox input{width:18px;height:18px;margin:0;cursor:pointer}
+#reportbox.on{border-color:var(--accent);color:var(--accent)}
+#reportbox.off-code{color:var(--muted)}
+.annot select{min-height:36px;padding:4px 8px;font-size:13px}
+.shared{border-top:1px solid var(--line);padding:6px 0;font-size:14px}
+.shared .stext{white-space:pre-wrap}
+.count{font-size:12px;color:var(--muted);margin:2px 0 10px}
+h2{font-size:15px;margin:18px 0 8px}
+.tick{
+  font-size:12px;color:var(--muted);border-left:2px solid var(--accent);
+  padding:5px 0 5px 10px;margin-bottom:6px;
+}
+.tick b{color:var(--ink)}
+.new{border-left-color:var(--warn)}
+.new b::after{content:" NEW";color:var(--warn);font-size:10px;letter-spacing:.5px}
+dialog{
+  border:0;border-radius:var(--radius);padding:0;max-width:760px;width:calc(100% - 24px);
+  background:var(--panel);color:var(--ink);box-shadow:var(--shadow);
+}
+dialog::backdrop{background:rgba(4,12,24,.55)}
+.dhead{
+  position:sticky;top:0;background:var(--panel);border-bottom:1px solid var(--line);
+  padding:14px;display:flex;gap:10px;align-items:center;
+}
+.dbody{padding:14px;max-height:70vh;overflow:auto}
+.close{margin-left:auto;border:0;background:none;font-size:22px;color:var(--muted);cursor:pointer;width:44px;height:44px}
+.hist{border-left:2px solid var(--line);padding-left:12px;margin:0}
+.hist li{list-style:none;margin-bottom:9px;font-size:13px}
+.hist time{display:block;font-size:11px;color:var(--muted)}
+table{width:100%;border-collapse:collapse;font-size:13px}
+td,th{text-align:left;padding:5px 6px;border-bottom:1px solid var(--line)}
+.stale{color:var(--warn)}
+@media(min-width:760px){ .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px} }
+</style>
+</head>
+<body>
+<header>
+  <div class="bar">
+    <div class="brand">SKYWALKER<small id="asof">loading…</small></div>
+    <input id="q" hidden type="search" placeholder="Search bills, sponsors, topics…" autocomplete="off">
+    <button id="keybtn" hidden class="pill keybtn" type="button" title="Enter your personal access code">Access code</button>
+    <select id="theme" aria-label="Theme">
+      <option value="light">Light</option>
+      <option value="dark">Dark</option>
+      <option value="aero">Aero</option>
+      <option value="ticker">Ticker</option>
+    </select>
+  </div>
+</header>
+
+<main>
+  <nav hidden>
+    <button data-tab="feed" class="on">Activity</button>
+    <button data-tab="watch">Watchlist <span id="wcount"></span></button>
+    <button data-tab="notes">Notes <span id="ncount"></span></button>
+    <button data-tab="search">Search</button>
+    <button data-tab="hearings">Hearings</button>
+    <button data-tab="members">Members</button>
+    <button data-tab="orgs">Organizations</button>
+    <button data-tab="stats">Analysis</button>
+  </nav>
+  <div id="view"></div>
+</main>
+
+<dialog id="detail">
+  <div class="dhead">
+    <div class="grow"><span id="dno" class="bill-no"></span><div id="dtitle" class="title"></div></div>
+    <button class="close" id="dlink" aria-label="Copy link to this item"
+            title="Copy link">🔗</button>
+    <button class="close" id="dclose" aria-label="Close">×</button>
+  </div>
+  <div class="dbody" id="dbody"></div>
+</dialog>
+
+<label id="reportbox" hidden popover="manual" title="When ticked, notes you write from now on are sent to leadership">
+  <input type="checkbox" id="reportchk"> <span id="reportlbl">Report new notes to leadership</span>
+</label>
+
+<script>
+// ── config ──────────────────────────────────────────────────────────
+// Data lives beside the page. Relative paths so this works from any host.
+const BASE = './data-bundle';
+
+// Short marks per kind for the changes feed. changes.json comes from the change record
+// (schema/17_feed.sql), which reports more kinds than the two this feed used to build
+// for itself. An unrecognised kind renders its wording and no mark - never an error,
+// never a blank row: the database may learn a new kind years after this page was last
+// edited.
+//
+// DECLARED HERE, NOT INSIDE render(). tickHTML() is called from earlier in render()
+// than a const declared beside it would be initialised, so the first UNGROUPED change
+// threw "Cannot access 'TICK_MARK' before initialization" and emptied the feed. It did
+// not show up in testing because out of session every change arrives in a bulk group,
+// and groups do not call tickHTML at all - it would have surfaced on the first day of
+// session (found 2026-09-22).
+const TICK_MARK = {
+  bill_action: '', bill_new: 'NEW', bill_status: 'STATUS', bill_version: 'VERSION',
+  vote: 'VOTE', hearing: 'HEARING', hearing_status: 'HEARING', governor: 'GOVERNOR',
+  member_status: 'MEMBER', committee_roster: 'COMMITTEE'
+};
+// Version PDFs stay on the legislature's own site rather than being mirrored: they are
+// the authoritative printing, and 38 GB of documents has no business in a Pages repo.
+const DOCBASE = 'https://kslegislature.gov';
+const LS = {
+  watch: 'skywalker.watch.v1',   // bill keys the user tracks
+  seen:  'skywalker.seen.v1',    // per-bill last-seen change timestamp
+  theme: 'skywalker.theme.v1',
+  errs:  'skywalker.errlog.v1'   // ring buffer of runtime errors (see below)
+};
+
+// ── error tracking ──────────────────────────────────────────────────
+// Pages is static: there is no server to phone home to, and the CSP forbids external
+// calls anyway (deliberately — no services, nothing the office doesn't own). So errors
+// are captured to a localStorage ring buffer on the DEVICE where they happened, a
+// badge appears on the data-age line, and one tap copies a full diagnostic report.
+// The support path this enables: a staffer says "it broke", you say "tap the badge,
+// paste what it copied" — instead of "what were you doing? what phone? can you
+// reproduce it?".
+//
+// Registered before anything else runs so even a syntax-level failure later in this
+// script gets recorded on the next load.
+const ERRMAX = 50;
+function trackErr(entry){
+  try {
+    const buf = JSON.parse(localStorage.getItem(LS.errs) || '[]');
+    buf.push({t: new Date().toISOString(), url: location.hash, ...entry});
+    while (buf.length > ERRMAX) buf.shift();
+    localStorage.setItem(LS.errs, JSON.stringify(buf));
+  } catch {}
+  try { updateErrBadge(); } catch {}
+}
+addEventListener('error', e => trackErr({
+  kind: 'js', msg: String(e.message || '').slice(0, 300),
+  src: `${(e.filename || '').split('/').pop()}:${e.lineno || 0}`}));
+addEventListener('unhandledrejection', e => trackErr({
+  kind: 'promise', msg: String(e.reason && e.reason.message || e.reason).slice(0, 300)}));
+
+function errBuf(){ try { return JSON.parse(localStorage.getItem(LS.errs) || '[]'); } catch { return []; } }
+
+function updateErrBadge(){
+  const el = document.getElementById('asof');
+  if (!el) return;
+  let b = document.getElementById('errbadge');
+  const n = errBuf().length;
+  if (!n){ if (b) b.remove(); return; }
+  if (!b){
+    b = document.createElement('button');
+    b.id = 'errbadge';
+    b.style.cssText = 'margin-left:6px;border:1px solid var(--bad);color:var(--bad);' +
+      'background:none;border-radius:999px;font-size:10px;padding:1px 7px;cursor:pointer';
+    b.title = 'Copy error report and clear';
+    b.onclick = async ev => {
+      ev.stopPropagation();
+      const report = JSON.stringify({
+        app: 'skywalker', data_as_of: manifest?.generated_at || null,
+        ua: navigator.userAgent, copied_at: new Date().toISOString(),
+        errors: errBuf(),
+      }, null, 1);
+      let copied = false;
+      try { await navigator.clipboard.writeText(report); copied = true; } catch {}
+      // clipboard needs https/localhost; fall back to showing the report so it can
+      // be copied by hand rather than silently doing nothing
+      if (!copied) prompt('Copy this error report:', report);
+      localStorage.removeItem(LS.errs);
+      updateErrBadge();
+    };
+    el.after(b);
+  }
+  b.textContent = `${n} error${n === 1 ? '' : 's'}`;
+}
+
+// ── tiny state helpers (preferences live on the DEVICE, by design) ──
+const load = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } };
+const save = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
+
+// Corrupt or hand-edited localStorage must not kill the page before any handler
+// attaches — `new Set(<non-iterable>)` throws at module scope.
+const stored = load(LS.watch, []);
+let watch = new Set(Array.isArray(stored) ? stored : []);
+let seen  = (() => { const s = load(LS.seen, {}); return (s && typeof s === 'object' && !Array.isArray(s)) ? s : {}; })();
+let manifest = null, billIndex = null, changes = [], upcoming = [];
+// Analytics load on demand — they are only needed by the Members and Analysis tabs.
+let members = null, allies = null, lifecycle = null;
+
+const key = b => `${b.b}|${b.n}`;             // biennium|billno
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+// ── theme ───────────────────────────────────────────────────────────
+const themeSel = document.getElementById('theme');
+function setTheme(t){ document.documentElement.dataset.theme = t; themeSel.value = t; save(LS.theme, t); }
+themeSel.onchange = e => setTheme(e.target.value);
+setTheme(load(LS.theme, 'light'));
+
+// ── boot ────────────────────────────────────────────────────────────
+// fetch() only rejects on network failure — a 404 resolves with an HTML body and
+// then .json() throws somewhere far away. Check res.ok at the source.
+async function getJSON(path){
+  // Every failure mode is tracked with the path: HTTP status (missing/misdeployed
+  // file), network failure (offline, server down), and parse failure (truncated or
+  // corrupted JSON — which a half-finished deploy can produce).
+  let res;
+  try {
+    res = await fetch(`${BASE}/${path}`);
+  } catch (e) {
+    trackErr({kind: 'net', msg: String(e.message).slice(0, 200), src: path});
+    throw e;
+  }
+  if (!res.ok){
+    trackErr({kind: 'http', msg: `HTTP ${res.status}`, src: path});
+    throw new Error(`${path}: HTTP ${res.status}`);
+  }
+  try {
+    // Locked site: every data file is nonce + AES-GCM(gzip(json)) under the site key,
+    // which only a valid access code can unwrap (see the tiers section below).
+    if (!siteKey) return await res.json();
+    try {
+      return await openSealed(await res.arrayBuffer());
+    } catch (first) {
+      // GitHub Pages lets browsers cache files for 10 minutes. Right after the site key
+      // rotates (a revoked code) - or after the switch from the old open site - the
+      // cached copy is under an old key, or not encrypted at all, and will not open.
+      // Fetch past the cache once before calling it an error.
+      const fresh = await fetch(`${BASE}/${path}`, {cache: 'reload'});
+      if (!fresh.ok) throw first;
+      return await openSealed(await fresh.arrayBuffer());
+    }
+  } catch (e) {
+    trackErr({kind: 'parse', msg: String(e.message).slice(0, 200), src: path});
+    throw e;
+  }
+}
+let siteKey = null;   // CryptoKey for the whole site; null until a code unlocks it
+async function openSealed(buf){
+  const b = new Uint8Array(buf);
+  const pt = await crypto.subtle.decrypt({name: 'AES-GCM', iv: b.slice(0, 12)}, siteKey, b.slice(12));
+  const text = await new Response(
+    new Blob([pt]).stream().pipeThrough(new DecompressionStream('gzip'))).text();
+  return JSON.parse(text);
+}
+
+function fail(msg, detail){
+  document.getElementById('view').innerHTML =
+    `<div class="card empty"><p><strong>${esc(msg)}</strong></p>
+     <p><small>${esc(detail || '')}</small></p></div>`;
+}
+
+async function boot(){
+  updateErrBadge();   // errors from a previous visit surface immediately
+  try {
+    manifest = await getJSON('manifest.json');
+  } catch (e) {
+    fail('Could not load data bundle.', `Expected ${BASE}/manifest.json — ${e.message}`);
+    return;
+  }
+
+  // Always show data age. Staleness must be visible, never assumed.
+  const gen = new Date(manifest.generated_at);
+  const el = document.getElementById('asof');
+  if (isNaN(gen)) {
+    el.textContent = 'data age unknown';
+    el.className = 'stale';
+  } else {
+    el.textContent = `data as of ${gen.toLocaleString([], {month:'short', day:'numeric', hour:'numeric', minute:'2-digit'})}`;
+    if ((Date.now() - gen) / 36e5 > 36) el.className = 'stale';
+  }
+
+  // Only the changes feed loads up front. The bill index (~2.5 MB) is deferred to
+  // the first search, which is the only thing that reads it — that is ~68% off
+  // first paint. Detail files load on drill-in.
+  // Scheduled hearings, shown above the feed. Absent or empty between sessions —
+  // both fine, so a failure here must never block boot.
+  getJSON('upcoming.json').then(u => { upcoming = Array.isArray(u) ? u : [];
+    if (currentTab === 'feed') render('feed'); }).catch(() => {});
+  try {
+    changes = await getJSON('changes.json');
+  } catch (e) {
+    // A blank page that still claims fresh data is the worst outcome for an
+    // alerting tool, so say plainly that the feed is missing.
+    fail('Activity feed unavailable.', e.message);
+    updateWatchCount();
+    return;
+  }
+  updateWatchCount();
+  // Boot from the URL, not unconditionally to the feed: a link someone sends you must
+  // land on what it points at. applyRoute() falls back to the feed when there is no
+  // route, so the plain first-visit case is unchanged.
+  applyRoute();
+}
+
+// Loaded on demand, once.
+let billIndexPromise = null;
+function ensureBillIndex(){
+  if (!billIndexPromise) billIndexPromise = getJSON('index/bills.json').then(d => (billIndex = d));
+  return billIndexPromise;
+}
+let orgIndex = null, orgAppearances = null, orgPromise = null;
+// Hearings browse: metadata + the sharded testimony index, loaded on first open.
+// This is what makes the 23,622 budget-hearing testimony rows REACHABLE — they have
+// no bill number, so no bill page can ever show them; the hearing is their only home.
+let hearingsData = null, testimonyAll = null, hearingsPromise = null, hearingFilter = '';
+function ensureHearings(){
+  if (!hearingsPromise){
+    hearingsPromise = Promise.all([
+      getJSON('data/hearings.json'),
+      getJSON('index/testimony/index.json')
+        .then(ix => Promise.all(ix.map(sh => getJSON(`index/testimony/${sh.file}`))))
+        .then(shards => shards.flat()),
+    ]).then(([h, t]) => { hearingsData = h; testimonyAll = t; });
+  }
+  return hearingsPromise;
+}
+// 'ctte_h_apprprtns_1' -> 'House Apprprtns' as a last resort; real titles come from
+// the hearings metadata when the committee held an API-listed hearing.
+function cmtLabel(kpid){
+  const meta = (hearingsData || []).find(h => h.committee_kpid === kpid);
+  if (meta && meta.committee_title) return meta.committee_title;
+  return String(kpid || '')
+    .replace(/^ctte_/, '').replace(/_\d+$/, '')
+    .replace(/^h_/, 'House ').replace(/^s_/, 'Senate ').replace(/^jt_/, 'Joint ')
+    .replace(/_/g, ' ');
+}
+// Which slice of the organizations list is showing. Defaults to stakeholders.
+let orgGroup = 'stakeholders';
+function ensureOrgs(){
+  if (!orgPromise) orgPromise = Promise.all([
+    getJSON('index/orgs.json'), getJSON('data/org_appearances.json')
+  ]).then(([i,a]) => { orgIndex=i; orgAppearances=a; });
+  return orgPromise;
+}
+let analyticsPromise = null;
+function ensureAnalytics(){
+  if (!analyticsPromise) analyticsPromise = Promise.all([
+    getJSON('analytics/members.json'), getJSON('analytics/allies.json'),
+    getJSON('analytics/lifecycle.json')
+  ]).then(([m,a,l]) => { members=m; allies=a; lifecycle=l; });
+  return analyticsPromise;
+}
+
+function updateWatchCount(){
+  const n = watch.size;
+  document.getElementById('wcount').textContent = n ? `(${n})` : '';
+}
+
+// ── watchlist ───────────────────────────────────────────────────────
+function toggleWatch(k, ev){
+  ev?.stopPropagation();
+  watch.has(k) ? watch.delete(k) : watch.add(k);
+  save(LS.watch, [...watch]);
+  updateWatchCount();
+  render(currentTab);
+}
+
+// Changes newer than the last timestamp this device saw for that bill.
+function unseenFor(k){
+  const [b, n] = k.split('|');
+  const last = seen[k];
+  return changes.filter(c => c.biennium === b && c.bill_no === n && (!last || c.t > last));
+}
+function markSeen(k){
+  const items = unseenFor(k);
+  if (items.length){ seen[k] = items[0].t; save(LS.seen, seen); }
+}
+
+// ── rendering ───────────────────────────────────────────────────────
+let currentTab = 'feed';
+const view = document.getElementById('view');
+
+function billCard(b, opts = {}){
+  const k = key(b);
+  const on = watch.has(k);
+  const unseen = opts.showNew ? unseenFor(k).length : 0;
+  return `<div class="card row" data-open="${esc(k)}" role="button" tabindex="0"
+    aria-label="Open ${esc(b.n)}">
+    <div class="grow">
+      <span class="bill-no">${esc(b.n)}</span>
+      ${unseen ? `<span class="pill warn">${unseen} new</span>` : ''}
+      ${annotBadge('bill', {biennium: b.b, bill_no: b.n})}
+      <div class="title">${esc(b.t || b.l || '')}</div>
+      <div class="meta">
+        <span class="pill">${esc(b.s || 'status unknown')}</span>
+        ${b.sp?.length ? `<span>${esc(b.sp.slice(0,2).join(', '))}${b.sp.length>2?' +'+(b.sp.length-2):''}</span>` : ''}
+        <span>${esc(b.b)}</span>
+      </div>
+    </div>
+    <button class="star ${on?'on':''}" data-watch="${esc(k)}" aria-label="${on?'Unwatch':'Watch'}">${on?'★':'☆'}</button>
+  </div>`;
+}
+
+function render(tab){
+  currentTab = tab;
+  document.querySelectorAll('nav button').forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
+  // The box FILTERS on the members/orgs tabs and SEARCHES elsewhere; the placeholder
+  // used to claim bill search everywhere, which misdescribed two tabs.
+  document.getElementById('q').placeholder =
+    tab === 'members' ? 'Filter members…' :
+    tab === 'orgs'    ? 'Filter organizations…' :
+    tab === 'hearings'? 'Filter by committee or bill…' :
+    'Search bills, sponsors, topics…';
+
+  if (tab === 'notes') return renderNotes();
+
+  if (tab === 'orgs'){
+    if (!orgIndex){
+      view.innerHTML = `<div class="card empty">Loading organizations…</div>`;
+      ensureOrgs().then(() => render('orgs'))
+        .catch(e => fail('Could not load organizations.', e.message));
+      return;
+    }
+    return renderOrgs();
+  }
+
+  if (tab === 'hearings'){
+    if (!testimonyAll){
+      view.innerHTML = `<div class="card empty">Loading hearings…</div>`;
+      ensureHearings().then(() => { if (currentTab === 'hearings') renderHearings(); })
+        .catch(e => fail('Could not load hearings.', e.message));
+      return;
+    }
+    return renderHearings();
+  }
+
+  if (tab === 'members' || tab === 'stats'){
+    if (!members){
+      view.innerHTML = `<div class="card empty">Loading analysis…</div>`;
+      ensureAnalytics().then(() => render(tab))
+        .catch(e => fail('Could not load analytics.', e.message));
+      return;
+    }
+    return tab === 'members' ? renderMembers() : renderStats();
+  }
+
+  if (tab === 'feed'){
+    // End-of-session floods the feed with hundreds of identical bulk actions
+    // ("Died on Calendar" x60), which made the landing screen a wall of one repeated
+    // row. Collapse consecutive identical actions into a single expandable line so
+    // the feed shows distinct EVENTS rather than distinct bills.
+    const groups = [];
+    for (const c of changes.slice(0, 400)){
+      const key = `${c.kind}|${c.label}|${(c.t||'').slice(0,16)}`;
+      const last = groups[groups.length-1];
+      if (last && last.key === key) last.items.push(c);
+      else groups.push({ key, label: c.label, kind: c.kind, t: c.t, items: [c] });
+      if (groups.length >= 60) break;
+    }
+    // Every bill number in a grouped row is a real link. These groups used to render
+    // the numbers as flat text, so the landing page NAMED dozens of bills that could
+    // not be opened from where they were named.
+    const chip = (c) => c.bill_no
+      ? `<a href="#/bill/${encodeURIComponent(c.biennium)}/${encodeURIComponent(c.bill_no)}"
+           style="color:var(--accent);text-decoration:none">${esc(c.bill_no)}</a>` : '';
+    view.innerHTML =
+      upcomingHTML() +
+      `<h2>Recent activity</h2>` + (groups.length ? groups.map(g => {
+      if (g.items.length === 1) return tickHTML(g.items[0]);
+      const bills = g.items.filter(c => c.bill_no);
+      return `<div class="tick">
+        <b>${g.items.length} bills</b> ${esc(g.label || g.kind)}
+        <div>${new Date(g.t).toLocaleString([], {month:'short', day:'numeric', hour:'numeric', minute:'2-digit'})}
+          — ${bills.slice(0,8).map(chip).join(', ')}${bills.length>8?` +${bills.length-8} more`:''}</div>
+      </div>`;
+    }).join('') : `<div class="card empty">No recent activity.</div>`);
+    return;
+  }
+
+  // "What's scheduled" sits above "what happened" — during session it is the
+  // most-consulted screen in the office; between sessions it renders nothing.
+  function upcomingHTML(){
+    if (!upcoming.length) return '';
+    const chip = (u, bn) =>
+      `<a href="#/bill/${encodeURIComponent(u.biennium)}/${encodeURIComponent(bn)}"
+         style="color:var(--accent);text-decoration:none">${esc(bn)}</a>`;
+    return `<h2>Coming up</h2>` + upcoming.slice(0, 20).map(u => `
+      <div class="tick">
+        <b>${u.t ? new Date(u.t).toLocaleString([], {weekday:'short', month:'short',
+            day:'numeric', hour:'numeric', minute:'2-digit'}) : 'TBD'}</b>
+        ${esc(u.committee || '')}${u.room ? ` — ${esc(u.room)}` : ''}
+        <div>${(u.bills || []).map(bn => chip(u, bn)).join(', ') || 'agenda not posted'}</div>
+      </div>`).join('');
+  }
+
+  // One feed row. 'NEW' means UNSEEN, not merely watched — labelling every watched
+  // bill NEW forever just teaches people to ignore the badge.
+  function tickHTML(c){
+    const k = `${c.biennium}|${c.bill_no}`;
+    const isNew = watch.has(k) && unseenFor(k).length > 0;
+    const mark = TICK_MARK[c.kind];
+    // `t` is when the system LEARNED of it; `happened` is when it happened. The title
+    // says both, because "why is a three-day-old hearing at the top?" is a fair question.
+    const when = new Date(c.t);
+    const title = 'Learned ' + when.toLocaleString()
+      + (c.happened ? ' · Happened ' + new Date(c.happened).toLocaleString() : '');
+    return `<div class="tick ${isNew ? 'new' : ''}" ${c.bill_no ? `data-open="${esc(k)}"` : ''}>
+      <b>${esc(c.bill_no || '—')}</b> ${mark ? `<span class="pill">${esc(mark)}</span> ` : ''}${esc(c.label || c.kind || '')}
+      ${c.tally && c.tally.yea != null ? ` <span class="pill">${esc(c.tally.yea)}–${esc(c.tally.nay)}</span>` : ''}
+      <div title="${esc(title)}">${isNaN(when) ? '' : when.toLocaleString([], {month:'short', day:'numeric', hour:'numeric', minute:'2-digit'})}</div>
+    </div>`;
+  }
+
+  if (tab === 'watch'){
+    if (!watch.size){
+      view.innerHTML = `<div class="card empty">
+        <p><strong>Nothing tracked yet.</strong></p>
+        <p>Tap ☆ on any bill to follow it. Your list stays on this device.</p></div>`;
+      return;
+    }
+    // The watch tab needs the index to resolve keys to bills.
+    if (!billIndex){
+      view.innerHTML = `<div class="card empty">Loading your list…</div>`;
+      ensureBillIndex().then(() => render('watch'))
+        .catch(e => fail('Could not load bill index.', e.message));
+      return;
+    }
+    const mine = billIndex.filter(b => watch.has(key(b)));
+    const withNews = mine.filter(b => unseenFor(key(b)).length);
+    // A watched key with no matching bill (dropped from the index, or an older
+    // biennium) previously left a permanent dead entry with no way to clear it.
+    const known = new Set(mine.map(b => key(b)));
+    const orphans = [...watch].filter(k => !known.has(k));
+    view.innerHTML =
+      (withNews.length ? `<h2>Changed since you last looked</h2>` + withNews.map(b => billCard(b, {showNew:true})).join('') : '') +
+      `<h2>Tracking (${mine.length})</h2>` +
+      mine.filter(b => !withNews.includes(b)).map(b => billCard(b)).join('') +
+      (orphans.length ? `<h2>No longer available (${orphans.length})</h2>` + orphans.map(k => `
+        <div class="card row"><div class="grow"><span class="bill-no">${esc(k.split('|')[1])}</span>
+        <div class="meta">not in the current data — may be from an earlier biennium</div></div>
+        <button class="star on" data-watch="${esc(k)}" aria-label="Remove">★</button></div>`).join('') : '');
+    return;
+  }
+
+  // search
+  const q = document.getElementById('q').value.trim();
+  if (!q){
+    view.innerHTML = `<div class="card empty">Search bills by number, title, or sponsor.</div>`;
+    return;
+  }
+  if (!billIndex){
+    view.innerHTML = `<div class="card empty">Loading search index…</div>`;
+    ensureBillIndex().then(() => { if (currentTab === 'search') render('search'); })
+      .catch(e => fail('Could not load search index.', e.message));
+    return;
+  }
+  const hits = searchBills(q);
+  view.innerHTML = `<div class="count">${hits.length.toLocaleString()} result${hits.length===1?'':'s'}</div>`
+    + (hits.length ? hits.slice(0,120).map(b => billCard(b)).join('')
+                   : `<div class="card empty">Nothing matched “${esc(q)}”.</div>`);
+}
+
+// Bill numbers arrive in many shapes — "hb 2596", "HB2596", "2596".
+// Normalizing both sides makes all of them work.
+function searchBills(q){
+  const norm = s => String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  const nq = norm(q), words = q.toLowerCase().split(/\s+/).filter(Boolean);
+  const scored = [];
+  for (const b of billIndex){
+    const nn = norm(b.n);
+    let score = 0;
+    if (nn === nq) score = 100;
+    else if (nq && nn.includes(nq)) score = 60;
+    else {
+      const hay = `${b.t || ''} ${b.l || ''} ${(b.sp || []).join(' ')}`.toLowerCase();
+      if (words.every(w => hay.includes(w))) score = 20;
+    }
+    if (score) scored.push([score, b]);
+  }
+  return scored.sort((a, b) => b[0] - a[0]).map(x => x[1]);
+}
+
+// ── members ─────────────────────────────────────────────────────────
+// 224,756 per-member votes and the coalition analytics existed as files nothing
+// could reach. These two views are the whole point of having parsed the journals.
+let memberFilter = '';
+function renderMembers(){
+  const bi = [...new Set(members.map(m => m.biennium))].sort().reverse()[0];
+  const rows = members
+    .filter(m => m.biennium === bi && m.roll_calls > 20)
+    .filter(m => !memberFilter || (m.name||'').toLowerCase().includes(memberFilter))
+    .sort((a,b) => (a.name||'').localeCompare(b.name||''));
+  view.innerHTML =
+    `<div class="count">${rows.length} members with a voting record · ${esc(bi)}</div>` +
+    rows.map(m => `
+      <div class="card row" data-member="${esc(m.person_id)}">
+        <div class="grow">
+          <strong>${esc(m.name)}</strong>
+          <div class="meta">
+            <span class="pill">${esc(m.party||'?')}</span>
+            <span>${esc(m.chamber||'')}${m.district?` · dist ${esc(m.district)}`:''}</span>
+            <span>${m.roll_calls} roll calls</span>
+            ${m.party_unity_pct!=null?`<span>party unity ${m.party_unity_pct}%</span>`:''}
+          </div>
+        </div>
+      </div>`).join('');
+}
+
+function openMember(pid){
+  go('#/member/' + encodeURIComponent(pid));
+  const m = members.find(x => String(x.person_id) === String(pid));
+  if (!m) return;
+  const scope = `${m.biennium}_${m.chamber}`;
+  const rel = (allies[scope]||{})[String(pid)];
+  const nameOf = id => (members.find(x =>
+        String(x.person_id)===String(id) && x.biennium===m.biennium)||{}).name || id;
+
+  document.getElementById('dno').textContent = m.name || '';
+  document.getElementById('dtitle').textContent =
+    `${m.party||''} · ${m.chamber||''}${m.district?` · district ${m.district}`:''} · ${m.biennium}`;
+  document.getElementById('dbody').innerHTML = `
+    <table><tbody>
+      <tr><td>Roll calls</td><td style="text-align:right"><b>${m.roll_calls}</b></td></tr>
+      <tr><td>Voted yea</td><td style="text-align:right">${m.yea}</td></tr>
+      <tr><td>Voted nay</td><td style="text-align:right">${m.nay}</td></tr>
+      <tr><td>Absent</td><td style="text-align:right">${m.absent||0}</td></tr>
+      <tr><td>Attendance</td><td style="text-align:right">${m.attendance_pct ?? '–'}%</td></tr>
+      <tr><td>Party unity</td><td style="text-align:right"><b>${m.party_unity_pct ?? '–'}%</b>
+        <span class="meta">of ${m.party_unity_votes||0}</span></td></tr>
+    </tbody></table>
+    ${rel ? `
+      <h2>Votes most often with</h2>
+      <table><tbody>${rel.allies.map(a=>`<tr><td>${esc(nameOf(a.person_id))}</td>
+        <td style="text-align:right">${a.agree_pct}% <span class="meta">${a.shared}</span></td></tr>`).join('')}
+      </tbody></table>
+      <h2>Votes most often against</h2>
+      <table><tbody>${rel.opponents.map(a=>`<tr><td>${esc(nameOf(a.person_id))}</td>
+        <td style="text-align:right">${a.agree_pct}% <span class="meta">${a.shared}</span></td></tr>`).join('')}
+      </tbody></table>`
+      : `<div class="empty">Not enough shared votes to compare this member.</div>`}
+    <div class="meta" style="margin-top:14px">Agreement is measured over roll calls where
+      both members took a position, minimum 25 shared votes.</div>`;
+  mountAnnot('member', {id: String(m.person_id), name: m.name || '', biennium: m.biennium}, m.name || String(pid));
+  if (!dlg.open) dlg.showModal();
+}
+
+// ── organizations ───────────────────────────────────────────────────
+// Two different kinds of claim live here and are deliberately NOT merged:
+//   APPEARANCES — fact. This organization testified on this bill with this stance.
+//   POSITIONS   — the office's judgement about where they stand. Set in Retool.
+// Testimony is evidence toward a position; it is not a position.
+let orgFilter = '';
+function renderOrgs(){
+  // Default to stakeholders. Unfiltered, this list is topped by the Office of the
+  // Revisor of Statutes under several spellings, then "State of Kansas", then the House
+  // — the people who DRAFT the bills and the staff who explain them. They attend
+  // constantly, which is not the same thing as lobbying, and letting them outrank the
+  // Kansas Chamber makes the view answer a question nobody asked.
+  const GROUPS = {
+    stakeholders: {label: 'Stakeholders', test: o => o.t !== 'legislative_staff'},
+    government:   {label: 'Government',   test: o => ['state_agency','local_government'].includes(o.t)},
+    staff:        {label: 'Legislative staff', test: o => o.t === 'legislative_staff'},
+    all:          {label: 'All',          test: () => true},
+  };
+  const g = GROUPS[orgGroup] ? orgGroup : 'stakeholders';
+  const matching = orgIndex.filter(o =>
+    GROUPS[g].test(o) && (!orgFilter || (o.n||'').toLowerCase().includes(orgFilter)));
+  const rows = matching.slice(0, 200);
+  const TYPE_LABEL = {
+    legislative_staff: 'legislative staff', state_agency: 'state agency',
+    local_government: 'local government', citizen: 'individual',
+  };
+  view.innerHTML =
+    `<nav style="padding-bottom:8px">${Object.entries(GROUPS).map(([k,v]) =>
+      `<button data-orggroup="${k}" class="${k===g?'on':''}">${v.label}</button>`).join('')}</nav>` +
+    `<div class="count">${matching.length.toLocaleString()} of ${
+      orgIndex.length.toLocaleString()} organizations${
+      rows.length < matching.length ? ` · showing the ${rows.length} most active` : ''}</div>` +
+    (rows.length ? rows.map(o => `
+      <div class="card row" data-org="${esc(o.id)}" role="button" tabindex="0"
+           aria-label="Open ${esc(o.n)}">
+        <div class="grow">
+          <strong>${esc(o.n)}</strong>
+          <div class="meta"><span>${o.c} hearing appearance${o.c===1?'':'s'}</span>
+            ${o.t?`<span class="pill">${esc(TYPE_LABEL[o.t] || o.t)}</span>`:''}</div>
+        </div>
+      </div>`).join('')
+      : `<div class="card empty">No organizations match.</div>`);
+}
+
+function openOrg(oid){
+  go('#/org/' + encodeURIComponent(oid));
+  const o = orgIndex.find(x => String(x.id) === String(oid));
+  const app = orgAppearances[oid] || [];
+  if (!o) return;
+  const stance = c => app.filter(a => a.s === c).length;
+  const byBill = {};
+  for (const a of app) (byBill[`${a.y}|${a.b}`] ||= []).push(a);
+  const bills = Object.entries(byBill)
+    .sort((a,b) => b[1].length - a[1].length).slice(0, 60);
+
+  document.getElementById('dno').textContent = o.n || '';
+  document.getElementById('dtitle').textContent =
+    `${o.c} hearing appearance${o.c===1?'':'s'} across ${Object.keys(byBill).length} bills`;
+  document.getElementById('dbody').innerHTML = `
+    <h2>Positions</h2>
+    <div class="meta" style="padding:4px 0 10px">
+      No positions recorded for this organization yet. Positions are the office's own
+      assessment and are set in Retool — the hearing record below is evidence toward
+      one, not a substitute for it.</div>
+
+    <h2>Hearing record</h2>
+    <div class="meta" style="margin-bottom:8px">
+      <span class="pill ok">${stance('proponent')} proponent</span>
+      <span class="pill bad">${stance('opponent')} opponent</span>
+      <span class="pill">${stance('neutral')} neutral</span>
+      ${app.filter(a=>!a.s).length?`<span class="pill">${app.filter(a=>!a.s).length} unstated</span>`:''}
+    </div>
+    <table><tbody>${bills.map(([k, rows]) => {
+      const [y, b] = k.split('|');
+      const s = rows.find(r => r.s)?.s;
+      return `<tr data-open="${esc(k)}" style="cursor:pointer">
+        <td><span class="bill-no">${esc(b)}</span></td>
+        <td>${s?`<span class="pill ${s==='proponent'?'ok':s==='opponent'?'bad':''}">${esc(s)}</span>`:'<span class="meta">stance not stated</span>'}</td>
+        <td class="meta">${esc(rows[0].d||'')}${rows.length>1?` · ${rows.length} appearances`:''}</td>
+      </tr>`;
+    }).join('')}</tbody></table>
+    ${Object.keys(byBill).length > 60 ? `<div class="meta" style="margin-top:8px">
+      showing 60 of ${Object.keys(byBill).length} bills</div>` : ''}`;
+  mountAnnot('org', {id: String(o.id), name: o.n || ''}, o.n || String(oid));
+  if (!dlg.open) dlg.showModal();
+}
+
+// ── hearings ────────────────────────────────────────────────────────
+function renderHearings(){
+  // Groups come from TESTIMONY, not from the hearings table alone — a third of all
+  // testimony belongs to budget hearings about agencies rather than bills, and this
+  // grouping is the only way to reach it.
+  const groups = new Map();
+  for (const t of testimonyAll){
+    if (!t.c || !t.d) continue;
+    const k = `${t.c}|${t.d}`;
+    if (!groups.has(k)) groups.set(k, {c: t.c, d: t.d, rows: [], bills: new Set()});
+    const g = groups.get(k);
+    g.rows.push(t);
+    if (t.b) g.bills.add(t.b);
+  }
+  let list = [...groups.values()].sort((x, y) => (y.d || '').localeCompare(x.d || ''));
+  if (hearingFilter){
+    const f = hearingFilter;
+    list = list.filter(g => cmtLabel(g.c).toLowerCase().includes(f)
+      || g.c.toLowerCase().includes(f)
+      || [...g.bills].some(bn => bn.toLowerCase().includes(f)));
+  }
+  const shown = list.slice(0, 120);
+  view.innerHTML =
+    `<div class="count">${list.length.toLocaleString()} hearings with testimony on record${
+      shown.length < list.length ? ` · showing the ${shown.length} most recent` : ''}</div>` +
+    (shown.length ? shown.map(g => `
+      <div class="card row" data-hearing="${esc(g.c)}|${esc(g.d)}" role="button" tabindex="0"
+           aria-label="Open hearing">
+        <div class="grow">
+          <strong>${esc(cmtLabel(g.c))}</strong>
+          <div class="meta"><span>${esc(g.d)}</span>
+            <span>${g.rows.length} testimony filing${g.rows.length===1?'':'s'}</span>
+            ${g.bills.size ? `<span>${[...g.bills].slice(0,4).join(', ')}${g.bills.size>4?' +'+(g.bills.size-4):''}</span>`
+                           : `<span class="pill">budget / agency</span>`}</div>
+        </div>
+      </div>`).join('')
+      : `<div class="card empty">No hearings match.</div>`);
+}
+
+function openHearing(key){
+  go('#/hearing/' + key.split('|').map(encodeURIComponent).join('/'));
+  const [c, d] = key.split('|');
+  const rows = testimonyAll.filter(t => t.c === c && t.d === d);
+  document.getElementById('dno').textContent = d;
+  document.getElementById('dtitle').textContent = cmtLabel(c);
+  const stance = v => v==='proponent' ? 'ok' : v==='opponent' ? 'bad' : '';
+  const bills = [...new Set(rows.map(t => t.b).filter(Boolean))];
+  document.getElementById('dbody').innerHTML = `
+    ${bills.length ? `<div class="meta" style="margin-bottom:10px">Bills heard:
+      ${bills.map(bn => `<a href="#/search?q=${encodeURIComponent(bn)}"
+        style="color:var(--accent);text-decoration:none">${esc(bn)}</a>`).join(' · ')}</div>` : ''}
+    <div class="meta" style="margin-bottom:8px">A filing records that this person
+      appeared with this stance at THIS hearing — it is not an ongoing position.</div>
+    <table><tbody>${rows.map(t => `
+      <tr><td>${esc(t.p || '')}</td><td>${esc(t.o || '')}</td>
+        <td>${t.s ? `<span class="pill ${stance(t.s)}">${esc(t.s)}</span>` : ''}</td>
+        <td style="text-align:right">${t.a ? `<a href="${esc(DOCBASE + '/committees/testimony/pdf/?apn=' + t.a)}"
+          target="_blank" rel="noopener noreferrer">PDF</a>` : ''}</td></tr>`).join('')}
+    </tbody></table>`;
+  mountAnnot('hearing', {committee: c, date: d}, cmtLabel(c) + ' · ' + d);
+  if (!dlg.open) dlg.showModal();
+}
+
+// ── analysis ────────────────────────────────────────────────────────
+function renderStats(){
+  const L = lifecycle || {};
+  const o = L.outcomes || {};
+  const total = Object.values(o).reduce((a,b)=>a+b,0);
+  const bar = (n) => `<div style="height:6px;border-radius:3px;background:var(--accent);
+      width:${Math.max(2, Math.round(100*n/(total||1)))}%"></div>`;
+  view.innerHTML = `
+    <h2>What happens to bills</h2>
+    <div class="card">
+      <table><tbody>${Object.entries(o).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`
+        <tr><td>${esc(k)}</td><td style="width:45%">${bar(v)}</td>
+        <td style="text-align:right">${v.toLocaleString()}</td></tr>`).join('')}
+      </tbody></table>
+      <div class="meta" style="margin-top:8px">median ${L.median_days_to_disposition} days
+        from introduction to final action · mean ${L.mean_days}</div>
+    </div>
+
+    <h2>Committees by kill rate</h2>
+    <div class="card">
+      <table><tbody>${(L.committees||[]).slice(0,12).map(c=>`
+        <tr><td>${esc(c.committee)}</td>
+        <td style="text-align:right"><b>${c.kill_pct}%</b>
+          <span class="meta">${c.died}/${c.bills_seen}</span></td></tr>`).join('')}
+      </tbody></table>
+      <div class="meta" style="margin-top:8px">${esc(L.caveat||'')}</div>
+    </div>
+
+    <h2>Sponsors by pass rate</h2>
+    <div class="card">
+      <table><tbody>${(L.sponsors||[]).slice(0,12).map(s=>`
+        <tr><td>${esc(s.name||'?')}</td>
+        <td style="text-align:right"><b>${s.pass_pct}%</b>
+          <span class="meta">${s.passed}/${s.bills}</span></td></tr>`).join('')}
+      </tbody></table>
+      <div class="meta" style="margin-top:8px">minimum 10 sponsored bills</div>
+    </div>`;
+}
+
+// ── detail ──────────────────────────────────────────────────────────
+const dlg = document.getElementById('detail');
+document.getElementById('dclose').onclick = () => closeDetail();
+// A bill row inside the organization dialog opens that bill.
+document.getElementById('dbody').onclick = e => {
+  if (e.target.closest('[data-annot]')) return annotClick(e);
+  const o = e.target.closest('[data-open]');
+  if (o) openBill(o.dataset.open);
+};
+document.getElementById('dbody').addEventListener('keydown', annotKey);
+
+async function openBill(k){
+  const [b, n] = k.split('|');
+  go('#/bill/' + encodeURIComponent(b) + '/' + encodeURIComponent(n));
+  document.getElementById('dno').textContent = n;
+  document.getElementById('dtitle').textContent = '';
+  document.getElementById('dbody').innerHTML = '<div class="empty">Loading…</div>';
+  if (!dlg.open) dlg.showModal();
+  let d;
+  try { d = await getJSON(`bill/${encodeURIComponent(b)}/${encodeURIComponent(n)}.json`); }
+  catch { document.getElementById('dbody').innerHTML = '<div class="empty">Detail unavailable for this bill.</div>'; return; }
+
+  markSeen(k);
+  document.getElementById('dtitle').textContent = d.bill.short_title || d.bill.long_title || '';
+  const pos = d.positions || [];
+  // esc() even here: tally values come from CSV/API text and are never validated
+  // as numeric anywhere in the pipeline, so they are untrusted like everything else.
+  const tally = c => `${esc(c.tally_yea ?? '–')}–${esc(c.tally_nay ?? '–')}`;
+
+  document.getElementById('dbody').innerHTML = `
+    <div class="meta" style="margin-bottom:12px">
+      <span class="pill">${esc(d.bill.status || '')}</span>
+      <span>${esc(d.bill.biennium)}</span>
+      ${d.sponsors?.length ? `<span>${esc(d.sponsors.map(s=>s.sponsor_name).join(', '))}</span>` : ''}
+    </div>
+    ${d.votes?.length ? `<h2>Votes</h2><table><tbody>${d.votes.map(v=>`
+      <tr><td>${esc(v.chamber||'')}</td><td>${esc(v.motion||'')}</td>
+      <td style="text-align:right"><b>${tally(v)}</b></td></tr>`).join('')}</tbody></table>` : ''}
+    ${d.roll_calls?.length ? `<h2>Who voted how (${d.roll_calls.length} roll call${d.roll_calls.length===1?'':'s'})</h2>
+      ${d.roll_calls.map((rc,i)=>{
+        const by = v => rc.votes.filter(x=>x.v===v).map(x=>esc(x.n)).join(', ');
+        const flag = rc.parse_confidence==='high' ? '' :
+          `<span class="pill warn">parsed: ${esc(rc.parse_confidence)}</span>`;
+        return `<details class="card" ${i===0?'open':''}>
+          <summary><b>${esc(rc.chamber||'')} ${esc(rc.journal_date||'')}</b>
+            &nbsp;<span class="pill ok">${rc.yeas_count} yea</span>
+            <span class="pill bad">${rc.nays_count} nay</span> ${flag}</summary>
+          <div class="meta" style="margin:8px 0">${esc((rc.motion_text||'').slice(-190))}</div>
+          <div style="font-size:13px"><b>Yea:</b> ${by('yea')||'—'}</div>
+          <div style="font-size:13px;margin-top:6px"><b>Nay:</b> ${by('nay')||'—'}</div>
+          ${by('absent_not_voting') ? `<div style="font-size:13px;margin-top:6px">
+            <b>Absent / not voting:</b> ${by('absent_not_voting')}</div>` : ''}
+        </details>`;
+      }).join('')}` : ''}
+    <h2>Office positions${pos.length?` (${pos.length})`:''}</h2>
+    ${pos.length ? `<table><tbody>${
+      pos.slice(0,40).map(p=>`<tr><td>${esc(p.organization_name || '—')}</td>
+      <td><span class="pill ${p.position==='proponent'?'ok':p.position==='opponent'?'bad':''}">${esc(p.position)}</span></td>
+      <td class="meta">${esc(p.stated_on||'')}</td></tr>`).join('')
+    }</tbody></table>`
+    : `<div class="meta" style="padding:6px 0">No positions recorded for this bill yet.
+        Positions are set by the office in Retool — testimony below shows who spoke and
+        how, which is a record of a hearing, not a stated position on the bill.</div>`}
+    ${(d.versions||[]).length ? `<h2>Versions (${d.versions.length})</h2>
+      <div class="meta" style="margin-bottom:6px">Latest first. The text of a bill
+        changes as it moves; these are the printings.</div>
+      <table><tbody>${d.versions.slice().reverse().map(v=>`
+        <tr><td>${esc(v.amended_status || v.version || '')}</td>
+        <td style="text-align:right;white-space:nowrap">${
+          v.document_url ? `<a href="${esc(DOCBASE + v.document_url)}" target="_blank"
+            rel="noopener noreferrer">PDF</a>` : '<span class="meta">no document</span>'
+        }</td></tr>`).join('')}</tbody></table>` : ''}
+    ${(d.fiscal_notes||[]).length || (d.supp_notes||[]).length ? `
+      <h2>Notes</h2>
+      <div class="meta" style="margin-bottom:6px">The fiscal note is the official
+        "what does this cost" estimate; the supplemental note is staff's plain-language
+        summary of the bill.</div>
+      <table><tbody>
+      ${(d.fiscal_notes||[]).map(f=>`<tr><td>Fiscal note</td>
+        <td style="text-align:right"><a href="${esc(DOCBASE + f.document_url)}"
+          target="_blank" rel="noopener noreferrer">PDF</a></td></tr>`).join('')}
+      ${(d.supp_notes||[]).map(f=>`<tr><td>Supplemental note</td>
+        <td style="text-align:right"><a href="${esc(DOCBASE + f.document_url)}"
+          target="_blank" rel="noopener noreferrer">PDF</a></td></tr>`).join('')}
+      </tbody></table>` : ''}
+    <h2>History (${d.history?.length || 0})</h2>
+    <ul class="hist">${(d.history||[]).slice().reverse().slice(0,40).map(h=>`
+      <li><time>${h.occurred_datetime ? new Date(h.occurred_datetime).toLocaleDateString() : ''}</time>
+      ${esc(h.action_label || h.status || '')}</li>`).join('')}</ul>
+    ${d.testimony?.length ? `<h2>Testimony (${d.testimony.length})</h2><table><tbody>${
+      d.testimony.slice(0,20).map(t=>`<tr><td>${esc(t.presenter||'')}</td>
+      <td>${esc(t.organization||'')}</td><td>${esc(t.position||'')}</td></tr>`).join('')
+    }</tbody></table>` : ''}`;
+  mountAnnot('bill', {biennium: b, bill_no: n}, n + (d.bill.short_title ? ' · ' + d.bill.short_title.slice(0, 80) : ''));
+}
+
+// ── routing ─────────────────────────────────────────────────────────
+// Pages is static, so routes live in the hash. Before this the app had no URLs at
+// all — you could not send anyone a link to a bill, bookmark one, or press Back.
+// For an office where "send me the link" is a daily operation that was the most
+// expensive gap in the product, and it is a functional one, not a cosmetic one.
+//
+// applyingRoute guards the obvious loop: applyRoute() calls the same open* functions
+// that a click does, and those set the URL. Without the guard they fight each other.
+const TABS = ['feed', 'watch', 'notes', 'search', 'hearings', 'members', 'orgs', 'stats'];
+let applyingRoute = false;
+
+function go(hash, replace){
+  if (applyingRoute || location.hash === hash) return;
+  try {
+    if (replace) history.replaceState(null, '', hash);
+    else history.pushState(null, '', hash);
+  } catch { location.hash = hash; }   // file:// and some embedded views reject pushState
+}
+
+function tabRoute(){
+  const t = currentTab === 'feed' ? '' : currentTab;
+  const q = document.getElementById('q').value.trim();
+  // The box filters members and organizations too, so those views are equally worth
+  // sharing — "the orgs list filtered to 'realtors'" is a link someone will want.
+  const carries = ['search', 'members', 'orgs', 'hearings'].includes(currentTab);
+  const p = new URLSearchParams();
+  if (q && carries) p.set('q', q);
+  if (currentTab === 'orgs' && orgGroup !== 'stakeholders') p.set('g', orgGroup);
+  const qs = p.toString();
+  return '#/' + t + (qs ? '?' + qs : '');
+}
+
+function parseRoute(){
+  const raw = location.hash.replace(/^#\/?/, '');
+  const [path, qs] = raw.split('?');
+  return {
+    parts: path ? path.split('/').map(decodeURIComponent) : [],
+    q: new URLSearchParams(qs || ''),
+  };
+}
+
+async function applyRoute(){
+  applyingRoute = true;
+  try {
+    const {parts, q} = parseRoute();
+    const [kind, a, b] = parts;
+    if (kind === 'bill' && a && b){ if (!currentTab) render('feed'); return await openBill(a + '|' + b); }
+    if (kind === 'member' && a) return openMember(a);
+    if (kind === 'hearing' && a && b){
+      await ensureHearings();
+      if (!TABS.includes(currentTab)) render('hearings');
+      return openHearing(a + '|' + b);
+    }
+    if (kind === 'org' && a)    return openOrg(a);
+    if (dlg.open) dlg.close();
+    const term = q.get('q');
+    if (term !== null) document.getElementById('q').value = term;
+    const tab = TABS.includes(kind) ? kind : 'feed';
+    // A shared link to a filtered list must arrive filtered, so seed the filter the
+    // same way typing would before the view renders.
+    if (term) {
+      if (tab === 'members') memberFilter = term.toLowerCase();
+      if (tab === 'orgs') orgFilter = term.toLowerCase();
+      if (tab === 'hearings') hearingFilter = term.toLowerCase();
+    }
+    if (tab === 'orgs') orgGroup = q.get('g') || 'stakeholders';
+    render(tab);
+  } finally { applyingRoute = false; }
+}
+addEventListener('hashchange', applyRoute);
+addEventListener('popstate', applyRoute);
+
+// Closing the dialog must drop the detail route, or Back re-opens what you just shut.
+//
+// This deliberately does NOT rely on the dialog's own `close` event. Measured in this
+// environment, `close` does not fire at all: `open` flips true -> false and no listener
+// runs, including one attached seconds earlier. Same family as smooth scrollIntoView
+// silently doing nothing here. So every path that closes the dialog goes through this
+// function, and the `close` listener below is a belt-and-braces extra rather than the
+// mechanism.
+function closeDetail(){
+  if (dlg.open) dlg.close();
+  if (!applyingRoute) go(tabRoute(), true);
+}
+dlg.addEventListener('close', () => { if (!applyingRoute) go(tabRoute(), true); });
+// Escape closes a <dialog> natively; catch it so the route is cleaned up too.
+dlg.addEventListener('cancel', () => { if (!applyingRoute) go(tabRoute(), true); });
+dlg.addEventListener('keydown', e => { if (e.key === 'Escape') setTimeout(closeDetail, 0); });
+
+document.getElementById('dlink').onclick = async () => {
+  const url = location.href;
+  const btn = document.getElementById('dlink');
+  try { await navigator.clipboard.writeText(url); btn.textContent = '✓'; }
+  catch { btn.textContent = '⚠'; }          // clipboard needs https or localhost
+  setTimeout(() => { btn.textContent = '🔗'; }, 1200);
+};
+
+// ── events ──────────────────────────────────────────────────────────
+document.querySelector('nav').onclick = e => {
+  const b = e.target.closest('button[data-tab]');
+  if (b){ render(b.dataset.tab); go(tabRoute()); }
+};
+// Bill rows carry role="button" tabindex="0", so they must answer the keyboard the
+// way a real button does. Without this they are reachable by Tab and then dead.
+view.addEventListener('keydown', e => {
+  if (e.key !== 'Enter' && e.key !== ' ') return;
+  const row = e.target.closest('[data-open],[data-member],[data-org],[data-hearing],[data-annot="open"]');
+  if (!row || row.tagName === 'BUTTON') return;
+  e.preventDefault();
+  row.click();
+});
+view.onclick = e => {
+  if (e.target.closest('[data-annot]')) return annotClick(e);
+  const gb = e.target.closest('[data-orggroup]');
+  if (gb){ orgGroup = gb.dataset.orggroup; renderOrgs(); return go(tabRoute(), true); }
+  const w = e.target.closest('[data-watch]');
+  if (w) return toggleWatch(w.dataset.watch, e);
+  const m = e.target.closest('[data-member]');
+  if (m) return openMember(m.dataset.member);
+  const g = e.target.closest('[data-org]');
+  if (g) return openOrg(g.dataset.org);
+  const hh = e.target.closest('[data-hearing]');
+  if (hh) return openHearing(hh.dataset.hearing);
+  const o = e.target.closest('[data-open]');
+  if (o) openBill(o.dataset.open);
+};
+// On the Members and Organizations tabs the search box filters those lists rather than
+// searching bills. This is the ONLY input handler — an earlier version assigned a
+// second one above and captured the first as `origInput` without ever calling it, so
+// everything in the first handler was dead. Keep the routing here, in the live one.
+document.getElementById('q').oninput = () => {
+  const term = document.getElementById('q').value.trim().toLowerCase();
+  if (currentTab === 'members'){ memberFilter = term; renderMembers(); }
+  else if (currentTab === 'orgs'){ orgFilter = term; renderOrgs(); }
+  else if (currentTab === 'hearings'){ hearingFilter = term; if (testimonyAll) renderHearings(); }
+  else render('search');
+  // replace, not push: typing eight characters should not cost eight Back presses.
+  go(tabRoute(), true);
+};
+
+// ── notes, flags, tags (live on THIS device; leave as a file) ───────
+// The dashboard is static: nothing here can be posted anywhere. Annotations live in
+// localStorage on the device that made them, keyed on STABLE identities — never a
+// bill's apn, which moves as the bill advances — and leave as a small JSON file the
+// office imports with ops/import_annotations.py. That is the tier model: a reader's
+// notes are theirs until they hand the file over; imported, they are the office's.
+LS.annot  = 'skywalker.annot.v1';
+LS.author = 'skywalker.author.v1';
+const FLAGS = ['priority', 'watch closely', 'needs follow-up', 'leadership', 'constituent interest'];
+const ANNOT_FORMAT = 'skywalker-annotations/1';
+let annot = (() => { const a = load(LS.annot, {}); return (a && typeof a === 'object' && !Array.isArray(a)) ? a : {}; })();
+let annotCtx = null;   // {type, key, label} of whatever the detail dialog is showing
+
+const akey = (type, key) => type + ':' + (
+  type === 'bill'    ? `${key.biennium}|${key.bill_no}` :
+  type === 'hearing' ? `${key.committee}|${key.date}` : String(key.id));
+function aget(type, key){ return annot[akey(type, key)] || null; }
+function aset(type, key, label, mut){
+  const k = akey(type, key);
+  const cur = annot[k] || {type, key, label, flags: [], tags: [], notes: []};
+  cur.label = label || cur.label;
+  mut(cur);
+  if (!cur.flags.length && !cur.tags.length && !cur.notes.length) delete annot[k];
+  else { cur.updated = new Date().toISOString(); annot[k] = cur; }
+  save(LS.annot, annot);
+  updateNotesCount();
+  scheduleReport();
+}
+function author(){ return load(LS.author, '') || ''; }
+function ensureAuthor(){
+  let a = author();
+  if (!a){
+    a = (prompt('Your name, so the office knows whose notes these are:') || '').trim().slice(0, 80);
+    if (a) save(LS.author, a);
+  }
+  return a;
+}
+function updateNotesCount(){
+  const el = document.getElementById('ncount');
+  const n = Object.keys(annot).length;
+  if (el) el.textContent = n ? `(${n})` : '';
+}
+function newId(){
+  return crypto.randomUUID ? crypto.randomUUID()
+       : Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+}
+function allTags(){
+  const s = new Set();
+  for (const a of Object.values(annot)) for (const t of a.tags) s.add(t);
+  return [...s].sort();
+}
+function annotBadge(type, key){
+  const a = aget(type, key);
+  if (!a) return '';
+  const bits = [];
+  if (a.flags.length) bits.push(a.flags.join(', '));
+  if (a.tags.length) bits.push('#' + a.tags.join(' #'));
+  if (a.notes.length) bits.push(`${a.notes.length} note${a.notes.length === 1 ? '' : 's'}`);
+  return `<span class="abadge">✎ ${esc(bits.join(' · '))}</span>`;
+}
+function annotPanel(type, key){
+  const a = aget(type, key) || {flags: [], tags: [], notes: []};
+  const who = author();
+  const when = t => new Date(t).toLocaleString([], {month:'short', day:'numeric', year:'numeric', hour:'numeric', minute:'2-digit'});
+  return `<div class="card annot" id="annot">
+    <div class="meta" style="justify-content:space-between">
+      <b>Notes, flags &amp; tags</b>
+      <span>${who ? 'by ' + esc(who) + ' · ' : ''}on this device ·
+        <a href="#/notes" style="color:var(--accent);text-decoration:none">export</a></span>
+    </div>
+    <div class="flagrow">${FLAGS.map(f => `<button class="pill ${a.flags.includes(f) ? 'on' : ''}"
+        data-annot="flag" data-flag="${esc(f)}">${esc(f)}</button>`).join('')}</div>
+    <div class="flagrow">${a.tags.map(t => `<span class="pill">#${esc(t)}
+        <button class="tagx" data-annot="untag" data-tag="${esc(t)}" aria-label="Remove tag">×</button></span>`).join('')}
+      <input data-annot-input="tag" list="taglist" placeholder="add a tag, then Enter" size="18">
+      <datalist id="taglist">${allTags().map(t => `<option value="${esc(t)}">`).join('')}</datalist>
+    </div>
+    ${a.notes.map(n => `<div class="note"><div class="meta" style="justify-content:space-between">
+        <span>${when(n.at)} · <span class="pill">${esc(audLabel(n.aud))}</span>${reportedPill(n)}</span>
+        <button class="tagx" data-annot="delnote" data-id="${esc(n.id)}">delete</button></div>${esc(n.body)}</div>`).join('')}
+    <textarea data-annot-input="note" placeholder="Add a note…"></textarea>
+    <div style="display:flex;gap:8px;justify-content:flex-end;align-items:center;flex-wrap:wrap;margin-top:4px">
+      <label class="meta" style="align-items:center">Who can see it
+        <select data-annot-input="aud">${audOptions().map(([v, l]) =>
+          `<option value="${v}" ${v === lastAud() ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select></label>
+      <button class="pill" data-annot="addnote">Add note</button>
+    </div>
+    ${sharedHTML(akey(type, key), a.notes)}
+  </div>`;
+}
+function mountAnnot(type, key, label){
+  annotCtx = {type, key, label};
+  const old = document.getElementById('annot');
+  if (old) old.remove();
+  document.getElementById('dbody').insertAdjacentHTML('afterbegin', annotPanel(type, key));
+}
+function refreshAnnot(){
+  if (!annotCtx) return;
+  const old = document.getElementById('annot');
+  if (old) old.outerHTML = annotPanel(annotCtx.type, annotCtx.key);
+  if (currentTab === 'notes') renderNotes();
+}
+function annotClick(e){
+  const b = e.target.closest('[data-annot]');
+  if (!b) return false;
+  const act = b.dataset.annot;
+  if (act === 'export'){ exportAnnotations(); return true; }
+  if (act === 'code'){ askForCode(); return true; }
+  if (act === 'copy'){ copyAnnotations(); return true; }
+  if (act === 'author'){
+    const a = (prompt('Your name:', author()) || '').trim().slice(0, 80);
+    if (a){ save(LS.author, a); renderNotes(); }
+    return true;
+  }
+  if (act === 'clear'){
+    if (confirm('Remove ALL notes, flags and tags on this device? Export first if you want to keep them.')){
+      annot = {}; save(LS.annot, annot); updateNotesCount(); renderNotes();
+    }
+    return true;
+  }
+  if (act === 'open'){
+    // Detail views need their data loaded; from the Notes tab nothing else has
+    // asked for it yet.
+    const [t, ...rest] = b.dataset.target.split(':');
+    const k = rest.join(':');
+    if (t === 'bill') openBill(k);
+    else if (t === 'member') ensureAnalytics().then(() => openMember(k));
+    else if (t === 'org') ensureOrgs().then(() => openOrg(k));
+    else if (t === 'hearing') ensureHearings().then(() => openHearing(k));
+    return true;
+  }
+  if (!annotCtx) return true;
+  const {type, key, label} = annotCtx;
+  if (act === 'flag'){
+    const f = b.dataset.flag;
+    aset(type, key, label, a => { a.flags = a.flags.includes(f) ? a.flags.filter(x => x !== f) : [...a.flags, f]; });
+  } else if (act === 'untag'){
+    const t = b.dataset.tag;
+    aset(type, key, label, a => { a.tags = a.tags.filter(x => x !== t); });
+  } else if (act === 'delnote'){
+    const id = b.dataset.id;
+    aset(type, key, label, a => { a.notes = a.notes.filter(n => n.id !== id); });
+  } else if (act === 'addnote'){
+    const ta = document.querySelector('#annot [data-annot-input="note"]');
+    const body = (ta && ta.value || '').trim();
+    if (!body) return true;
+    if (!ensureAuthor()) return true;
+    const sel = document.querySelector('#annot [data-annot-input="aud"]');
+    const aud = audOptions().some(([v]) => v === sel?.value) ? sel.value : 'me';
+    save(LS.aud, aud);
+    aset(type, key, label, a => { a.notes.push({id: newId(), body, at: new Date().toISOString(), aud}); });
+  }
+  refreshAnnot();
+  return true;
+}
+function annotKey(e){
+  const inp = e.target.closest('[data-annot-input="tag"]');
+  if (!inp || e.key !== 'Enter' || !annotCtx) return;
+  e.preventDefault();
+  const t = inp.value.trim().replace(/^#/, '').slice(0, 80);
+  if (!t) return;
+  const {type, key, label} = annotCtx;
+  aset(type, key, label, a => { if (!a.tags.includes(t)) a.tags.push(t); });
+  refreshAnnot();
+}
+function exportPayload(){
+  return {
+    format: ANNOT_FORMAT, exported_at: new Date().toISOString(), author: author() || null,
+    data_as_of: manifest?.generated_at || null,
+    entries: Object.values(annot).map(a => ({type: a.type, key: a.key, label: a.label,
+      flags: a.flags, tags: a.tags, notes: a.notes})),
+  };
+}
+function exportAnnotations(){
+  if (!ensureAuthor()) return;
+  const json = JSON.stringify(exportPayload(), null, 1);
+  const stamp = new Date().toISOString().slice(0, 16).replace(/[-:T]/g, '');
+  const name = `skywalker-notes-${(author() || 'reader').replace(/[^a-z0-9]+/gi, '-').toLowerCase()}-${stamp}.json`;
+  try {
+    const url = URL.createObjectURL(new Blob([json], {type: 'application/json'}));
+    const a = document.createElement('a');
+    a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+  } catch (err) {
+    trackErr({kind: 'export', msg: String(err.message).slice(0, 200)});
+    prompt('Download blocked here — copy this instead:', json);
+  }
+}
+async function copyAnnotations(){
+  const json = JSON.stringify(exportPayload(), null, 1);
+  try {
+    await navigator.clipboard.writeText(json);
+    alert('Copied. Paste it into a file ending in .json and send that to the office.');
+  } catch { prompt('Copy this:', json); }
+}
+function importAnnotationsFile(file){
+  const r = new FileReader();
+  r.onload = () => {
+    let d;
+    try { d = JSON.parse(r.result); } catch { alert('That is not a JSON file.'); return; }
+    if (d.format !== ANNOT_FORMAT || !Array.isArray(d.entries)){ alert('That is not a Skywalker notes file.'); return; }
+    let n = 0;
+    for (const en of d.entries){
+      if (!en || !en.type || !en.key) continue;
+      aset(en.type, en.key, en.label, a => {
+        for (const f of en.flags || []) if (!a.flags.includes(f)) a.flags.push(f);
+        for (const t of en.tags || []) if (!a.tags.includes(t)) a.tags.push(t);
+        const have = new Set(a.notes.map(x => x.id));
+        for (const x of en.notes || [])
+          if (x && x.id && x.body && !have.has(x.id)) a.notes.push({id: x.id, body: x.body, at: x.at || new Date().toISOString()});
+      });
+      n++;
+    }
+    alert(`Merged ${n} item${n === 1 ? '' : 's'} from ${d.author || 'the file'}.`);
+    renderNotes();
+  };
+  r.readAsText(file);
+}
+function renderNotes(){
+  const items = Object.values(annot).sort((a, b) => (b.updated || '').localeCompare(a.updated || ''));
+  const target = a =>
+    a.type === 'bill'    ? `bill:${a.key.biennium}|${a.key.bill_no}` :
+    a.type === 'member'  ? `member:${a.key.id}` :
+    a.type === 'org'     ? `org:${a.key.id}` :
+    a.type === 'hearing' ? `hearing:${a.key.committee}|${a.key.date}` : '';
+  const KIND = {bill: 'bill', member: 'member', org: 'organization', hearing: 'hearing'};
+  view.innerHTML = `
+    <div class="card">
+      <div class="meta" style="justify-content:space-between;align-items:center">
+        <span><b>${items.length}</b> annotated item${items.length === 1 ? '' : 's'} on this device${author() ? ` · by ${esc(author())}` : ''}
+          <button class="tagx" data-annot="author" style="color:var(--accent)">${author() ? 'change name' : 'set your name'}</button></span>
+        <span style="display:flex;gap:6px;flex-wrap:wrap">
+          <button class="pill on" data-annot="export">Export file</button>
+          <button class="pill" data-annot="copy">Copy</button>
+          <label class="pill" style="cursor:pointer">Load file<input type="file" accept=".json,application/json" id="annotfile" style="display:none"></label>
+          ${items.length ? `<button class="pill" data-annot="clear">Clear all</button>` : ''}
+        </span>
+      </div>
+      <div class="meta" style="margin-top:8px;display:block">Notes, flags and tags stay on this device.
+        <b>Export file</b> writes them to a small file you hand to the office, which imports it into the
+        shared database. <b>Load file</b> merges a file — someone else's, or your own from another
+        device — into this one.</div>
+    </div>
+    <div class="card">
+      <div class="meta" style="justify-content:space-between;align-items:center">
+        <span>${access ? `<b>Tier ${access.tier}</b> access on this device`
+                       : 'No access code on this device — you see public information only'}</span>
+        <button class="pill ${access ? '' : 'on'}" data-annot="code">${access ? 'Remove code' : 'Enter access code'}</button>
+      </div>
+      <div class="meta" style="margin-top:8px;display:block">${access ? `
+        With <b>Report new notes to leadership</b> ticked (bottom corner), notes you write
+        <i>from the moment you tick it</i> are sent — earlier notes never are. Notes you share are
+        delivered with the next update, usually within the hour.${access.tier <= 2
+          ? ' Notes marked <b>Only me</b> are never sent.'
+          : ' Notes marked <b>Only me</b> go to leadership only.'}
+        Untick it and nothing leaves this device.` : `
+        An access code is personal. Ask the office for one to see notes shared with you and to
+        share your own.`}</div>
+    </div>
+    ${generalSharedHTML()}
+    ${items.length ? items.map(a => `
+      <div class="card row" data-annot="open" data-target="${esc(target(a))}" role="button" tabindex="0"
+           aria-label="Open ${esc(a.label || '')}">
+        <div class="grow">
+          <span class="pill">${esc(KIND[a.type] || a.type)}</span> <b>${esc(a.label || '')}</b>
+          <div class="meta">
+            ${a.flags.map(f => `<span class="pill warn">${esc(f)}</span>`).join('')}
+            ${a.tags.map(t => `<span class="pill">#${esc(t)}</span>`).join('')}
+            ${a.notes.length ? `<span>${a.notes.length} note${a.notes.length === 1 ? '' : 's'}</span>` : ''}
+          </div>
+          ${a.notes.length ? `<div class="meta" style="margin-top:4px;display:block;white-space:pre-wrap">${esc(a.notes[a.notes.length - 1].body.slice(0, 200))}</div>` : ''}
+        </div>
+      </div>`).join('')
+    : `<div class="card empty">Nothing annotated yet. Open any bill, member, organization or hearing and use the panel at the top of it.</div>`}`;
+  const fi = document.getElementById('annotfile');
+  if (fi) fi.onchange = () => { if (fi.files[0]) importAnnotationsFile(fi.files[0]); fi.value = ''; };
+}
+// ── tiers: personal access codes, shared notes, reporting ───────────
+// A code unlocks one tier's notes. Nothing here is a permission CHECK — the page could
+// be edited to skip any if-statement. The notes arrive encrypted (tiers/t1..t4.json) and
+// a code is the only way to get the key; ops/process_inbox.py re-checks everything the
+// page sends. See schema/11_tier_access.sql for the whole model.
+//
+//   Tier 1 the office · Tier 2 leadership · Tier 3 chairs & vice chairs · Tier 4 others
+LS.code   = 'skywalker.code.v1';     // the person's code — needed to unlock each visit
+LS.report = 'skywalker.report.v1';   // is the report box ticked (survives sessions)
+LS.period = 'skywalker.period.v1';   // {id, since}: reporting started when box was ticked
+LS.device = 'skywalker.device.v1';
+LS.aud    = 'skywalker.aud.v1';      // last "who can see it" choice
+LS.sent   = 'skywalker.sent.v1';     // fingerprint of the last report, to skip repeats
+let access = null;                   // {tier, verifier, items}
+
+const AUD = {me: 'Only me', t1: 'Tier 1', t12: 'Tiers 1–2', t123: 'Tiers 1–3', all: 'Everyone'};
+const AUD_BY_TIER = {1: ['me', 't1', 't12', 't123', 'all'], 2: ['me', 't12', 't123', 'all'],
+                     3: ['me', 'all'], 4: ['me']};
+const audLabel = a => AUD[a] || AUD.me;
+const audOptions = () => (AUD_BY_TIER[access?.tier] || ['me']).map(v => [v, AUD[v]]);
+const lastAud = () => { const v = load(LS.aud, 'me'); return audOptions().some(([x]) => x === v) ? v : 'me'; };
+
+const te = new TextEncoder(), td = new TextDecoder();
+const b64d = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+const hexOf = buf => [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
+const hexBytes = s => Uint8Array.from(String(s || '').match(/../g) || [], h => parseInt(h, 16));
+// Must match publish/tier_crypto.py normalize_code(): no I, L, O or U in a code, so
+// the look-alikes fold back to digits.
+const normCode = c => String(c || '').toUpperCase().replace(/[^A-Z0-9]/g, '')
+                        .replace(/O/g, '0').replace(/[IL]/g, '1');
+const sha256hex = async s => hexOf(await crypto.subtle.digest('SHA-256', te.encode(s)));
+async function aesOpen(raw, iv, data){
+  const k = await crypto.subtle.importKey('raw', raw, 'AES-GCM', false, ['decrypt']);
+  return new Uint8Array(await crypto.subtle.decrypt({name: 'AES-GCM', iv}, k, data));
+}
+// Plain fetch, not getJSON: a site published before any code was issued has no tiers/
+// folder, and that is not an error worth a badge.
+async function tierFile(name){
+  const r = await fetch(`${BASE}/tiers/${name}`, {cache: 'no-cache'});
+  if (!r.ok) throw new Error(`tiers/${name}: HTTP ${r.status}`);
+  return r.json();
+}
+
+// Returns {tier, verifier, items} or null when the code is not in the keyring.
+async function unlock(code){
+  const norm = normCode(code);
+  const ring = await tierFile('keyring.json');
+  // Finding our own entry is DELIBERATELY SLOW (PBKDF2, not a plain hash). The keyring
+  // is downloadable by anyone, so a fast fingerprint would let someone guess codes
+  // offline at billions per second - which a 16-character code would not survive. This
+  // costs about a fifth of a second, once, at sign-in. Must match
+  // publish/tier_crypto.py lookup_of(); changing one without the other locks everybody out.
+  const lbase = await crypto.subtle.importKey('raw', te.encode('lookup:' + norm), 'PBKDF2', false, ['deriveBits']);
+  const e = ring.entries?.[hexOf(await crypto.subtle.deriveBits(
+    {name: 'PBKDF2', hash: 'SHA-256', salt: hexBytes(ring.lsalt), iterations: ring.iter}, lbase, 64))];
+  if (!e) return null;
+  const base = await crypto.subtle.importKey('raw', te.encode(norm), 'PBKDF2', false, ['deriveBits']);
+  const wrap = await crypto.subtle.deriveBits(
+    {name: 'PBKDF2', hash: 'SHA-256', salt: b64d(e.s), iterations: ring.iter}, base, 256);
+  const inner = JSON.parse(td.decode(await aesOpen(wrap, b64d(e.n), b64d(e.w))));
+  const f = await tierFile(`t${inner.tier}.json`);
+  const data = JSON.parse(td.decode(await aesOpen(b64d(inner.key), b64d(f.n), b64d(f.c))));
+  return {tier: inner.tier, verifier: await sha256hex('verify:' + norm), items: data.items || {},
+          site: inner.site};
+}
+
+// ── the live side: whip counts, committee plans, briefs, the board ──
+// Everything above this line is PUBLISHED data - built hourly, encrypted, read from
+// files. Everything below is LIVE: the page asks the database a question and the answer
+// depends on who is asking. A deputy whip's request for the whip board comes back with
+// only their own members, because api_call() applies the rule server-side. Nothing here
+// is trusted to do that, and nothing here should ever try.
+let apiUrl;                          // undefined = not looked up yet, null = no API
+async function apiCall(action, payload){
+  if (!access) return {ok: false, error: 'locked'};
+  if (apiUrl === undefined){
+    try { apiUrl = (await getJSON('tiers/api.json')).url || null; } catch { apiUrl = null; }
+  }
+  if (!apiUrl) return {ok: false, error: 'no api'};
+  let r;
+  try {
+    // text/plain is the one cross-site POST a browser makes without asking the server
+    // for permission first. Unlike the note reports this one reads the reply, which
+    // works because the Retool workflow answers with access-control-allow-origin: *.
+    r = await fetch(apiUrl, {method: 'POST', headers: {'Content-Type': 'text/plain'},
+                             body: JSON.stringify({v: access.verifier, action, payload: payload || {}})});
+  } catch (e){
+    return {ok: false, error: 'offline'};
+  }
+  let d;
+  try { d = await r.json(); } catch { return {ok: false, error: 'bad reply'}; }
+  // Retool has returned the workflow's answer as a list of rows, as columns, and as the
+  // bare object, depending on version. The workflow deliberately does not pick one
+  // (docs/RETOOL_SETUP.md), so unpick it here - same logic as ops/api_check.py unwrap().
+  for (let i = 0; i < 4; i++){
+    if (Array.isArray(d) && d.length) d = d[0];
+    else if (d && typeof d === 'object' && 'result' in d && !('ok' in d)) d = d.result;
+    else break;
+  }
+  return (d && typeof d === 'object') ? d : {ok: false, error: 'bad reply'};
+}
+
+// ── the lock ────────────────────────────────────────────────────────
+// The site is private (decided 2026-09-16): nothing loads until a valid code unlocks
+// the site key. Without one, all a visitor gets is this screen - the data files
+// themselves are unreadable ciphertext.
+async function start(){
+  updateNotesCount();
+  let locked = true;
+  try {
+    const r = await fetch(`${BASE}/tiers/keyring.json`, {cache: 'no-cache'});
+    // Only a bundle built with no keys at all (a purely local install) has no keyring;
+    // ops/publish_to_pages.py refuses to upload such a bundle.
+    locked = r.status !== 404;
+  } catch { /* offline: treat as locked */ }
+  if (!locked){ revealApp(); updateAccessUI(); return boot(); }
+
+  const code = load(LS.code, '');
+  if (!code) return showLock();
+  let got = null;
+  try { got = await unlock(code); }
+  catch (e) {
+    trackErr({kind: 'unlock', msg: String(e.message).slice(0, 200)});
+    return showLock('Could not check your access code. Check your connection, then reload.', true);
+  }
+  if (!got){
+    // Revoked, or a code that was never published. Forget it.
+    save(LS.code, ''); save(LS.report, false);
+    return showLock('That access code is no longer active. Ask the office for a new one.');
+  }
+  access = got;
+  siteKey = await crypto.subtle.importKey('raw', b64d(got.site), 'AES-GCM', false, ['decrypt']);
+  revealApp();
+  updateAccessUI();
+  boot();
+}
+
+// Tabs, search, the access button and the report box start hidden in the HTML, so a
+// locked page never flashes the app's controls while the code is being checked.
+function revealApp(){
+  document.querySelector('nav').hidden = false;
+  document.getElementById('q').hidden = false;
+  document.getElementById('keybtn').hidden = false;
+  document.getElementById('reportbox').hidden = false;
+  raiseReportBox();
+}
+
+function showLock(message, keepCode){
+  document.querySelector('nav').hidden = true;
+  document.getElementById('q').hidden = true;
+  document.getElementById('keybtn').hidden = true;
+  const box = document.getElementById('reportbox');
+  try { box.hidePopover(); } catch {}
+  box.hidden = true;
+  document.getElementById('asof').textContent = 'private';
+  view.innerHTML = `
+    <div class="card" style="max-width:420px;margin:40px auto;text-align:center">
+      <h2 style="margin-top:4px">Skywalker is private</h2>
+      <p class="meta" style="display:block">Enter the personal access code the office gave you.
+        You only need to do this once on each device.</p>
+      <form id="lockform" style="display:flex;flex-direction:column;gap:10px;margin-top:12px">
+        <!-- LETTING THE BROWSER REMEMBER THE CODE (asked for 2026-09-22).
+             A password manager only offers to save when it can see a credential, which
+             means three things together: a real <form>, a field of type="password" with
+             autocomplete="current-password", and a username field to file it under.
+             The username here is a fixed label rather than the person's name, which
+             nothing knows at this point - it becomes the entry's title in the manager.
+             It is off-screen rather than display:none, because a hidden field is
+             ignored by some managers. The field used to say autocomplete="off", which
+             told every browser NOT to offer. -->
+        <input type="text" name="username" value="Skywalker access code"
+               autocomplete="username" readonly tabindex="-1" aria-hidden="true"
+               style="position:absolute;opacity:0;width:1px;height:1px;pointer-events:none">
+        <input id="lockcode" type="password" name="code" autocomplete="current-password"
+               autocapitalize="characters" spellcheck="false" enterkeyhint="go"
+               placeholder="CARP-XXXX-XXXX-XXXX" aria-label="Access code"
+               style="font:inherit;font-size:18px;text-align:center;letter-spacing:1px;padding:12px;
+                      border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--ink)">
+        <label class="meta" style="display:flex;gap:6px;align-items:center;justify-content:center;
+                                   cursor:pointer;font-size:13px">
+          <input type="checkbox" id="lockshow" style="width:auto;margin:0"> show the code
+        </label>
+        <button class="pill on" style="min-height:44px;font-size:15px">Unlock</button>
+        <div id="lockmsg" class="meta" style="display:block;min-height:1.5em">${esc(message || '')}</div>
+      </form>
+    </div>`;
+  const form = document.getElementById('lockform');
+  form.onsubmit = async ev => {
+    ev.preventDefault();
+    const code = document.getElementById('lockcode').value;
+    const msg = document.getElementById('lockmsg');
+    if (!normCode(code)){ msg.textContent = 'Type your access code.'; return; }
+    msg.textContent = 'Checking…';
+    let got = null;
+    try { got = await unlock(code); }
+    catch { msg.textContent = 'Could not check the code right now. Check your connection and try again.'; return; }
+    if (!got){
+      msg.textContent = 'That code was not recognised. A new code starts working after the next update.';
+      return;
+    }
+    save(LS.code, normCode(code));
+    // Ask the browser to remember it. Chrome and Edge offer on this call; Firefox and
+    // Safari decide for themselves from the form above, which is why both exist. It is
+    // only ever an OFFER - the person says yes or no, and nothing is stored by us.
+    try {
+      if (window.PasswordCredential && navigator.credentials){
+        await navigator.credentials.store(new window.PasswordCredential({
+          id: 'Skywalker access code', password: normCode(code), name: 'Skywalker'}));
+      }
+    } catch { /* declined, unsupported, or an insecure context: never fatal */ }
+    location.reload();
+  };
+  document.getElementById('lockshow').onchange = ev => {
+    document.getElementById('lockcode').type = ev.target.checked ? 'text' : 'password';
+  };
+  // Enter (or "Go" on a phone keyboard) submits. Browsers do this for a form with a
+  // button on their own, but not every one does it reliably, so ask for it explicitly.
+  document.getElementById('lockcode').addEventListener('keydown', ev => {
+    if (ev.key === 'Enter'){ ev.preventDefault(); form.requestSubmit(); }
+  });
+  if (!keepCode) document.getElementById('lockcode').focus();
+}
+
+async function askForCode(){
+  if (!access) return;
+  if (!confirm(`Sign out of Skywalker on this device? You will need your access code to get back in.`)) return;
+  save(LS.code, ''); save(LS.report, false);
+  location.reload();
+}
+
+// ── the report box ──────────────────────────────────────────────────
+const reportChk = document.getElementById('reportchk');
+const reportOn = () => !!(access && load(LS.report, false));
+function setReport(on){
+  const was = load(LS.report, false);
+  save(LS.report, !!on);
+  // Ticking starts a NEW period: only notes written from now on are sent. The id keeps
+  // periods apart on the server, so re-ticking can never disturb what was already filed.
+  if (on && !was){ save(LS.period, {id: newId(), since: new Date().toISOString()}); save(LS.sent, ''); }
+  updateAccessUI();
+  refreshAnnot();
+  if (on) scheduleReport();
+}
+reportChk.onchange = () => {
+  if (reportChk.checked && !access){
+    reportChk.checked = false;
+    askForCode();
+    return;
+  }
+  setReport(reportChk.checked);
+};
+function updateAccessUI(){
+  const btn = document.getElementById('keybtn');
+  btn.textContent = access ? `Tier ${access.tier}` : 'Access code';
+  btn.classList.toggle('on', !!access);
+  const box = document.getElementById('reportbox');
+  reportChk.checked = reportOn();
+  box.classList.toggle('on', reportOn());
+  box.classList.toggle('off-code', !access);
+  box.title = access ? 'When ticked, notes you write from now on are sent to leadership'
+                     : 'Needs a personal access code';
+}
+document.getElementById('keybtn').onclick = askForCode;
+
+// Keep the box above everything, including an open detail dialog. The top layer stacks
+// in the order things enter it, so the box is re-entered after every dialog opens.
+// Browsers without popover support simply show it as an ordinary fixed element.
+function raiseReportBox(){
+  const box = document.getElementById('reportbox');
+  if (!box.showPopover) return;
+  try { if (box.matches(':popover-open')) box.hidePopover(); box.showPopover(); } catch {}
+}
+{
+  const dialog = document.getElementById('detail');
+  const open = dialog.showModal.bind(dialog);
+  dialog.showModal = () => { open(); raiseReportBox(); };
+}
+raiseReportBox();
+
+function inPeriod(n){
+  const p = load(LS.period, null);
+  return !!(reportOn() && p && (n.at || '') >= p.since);
+}
+function sendable(n){
+  // Tier 1-2 "only me" is truly private: never sent, ticked or not.
+  return inPeriod(n) && !((n.aud || 'me') === 'me' && access.tier <= 2);
+}
+function reportedPill(n){
+  return access && sendable(n) ? ' <span class="pill ok">reported</span>' : '';
+}
+
+function deviceId(){
+  let d = load(LS.device, '');
+  if (!d){ d = newId(); save(LS.device, d); }
+  return d;
+}
+function reportPayload(){
+  const p = load(LS.period, null);
+  if (!reportOn() || !p) return null;
+  const notes = [];
+  for (const a of Object.values(annot))
+    for (const n of a.notes)
+      if (sendable(n)) notes.push({id: n.id, type: a.type, key: a.key, label: a.label,
+                                   body: n.body, at: n.at, aud: n.aud || 'me'});
+  // Every report carries ALL of this period's notes, not just the newest: a deleted note
+  // is then simply absent, and a report that got lost is repaired by the next one.
+  return {format: 'skywalker-report/1', v: access.verifier, device: deviceId(),
+          period: p.id, notes};
+}
+
+let inboxUrl, reportTimer = null;
+async function sendReport(final){
+  const body = reportPayload();
+  if (!body) return;
+  const fp = await sha256hex(JSON.stringify(body));
+  const last = load(LS.sent, '');
+  // Nothing new since the last report, or a period with nothing in it yet: skip. Each
+  // request is a Retool Workflow run against a monthly allowance.
+  if (fp === last || (!body.notes.length && !last)) return;
+  if (inboxUrl === undefined){
+    // Sealed like every other data file, so the webhook address is private too.
+    try { inboxUrl = (await getJSON('tiers/inbox.json')).url || null; } catch { inboxUrl = null; }
+  }
+  if (!inboxUrl) return;
+  const json = JSON.stringify(body);
+  try {
+    // no-cors + text/plain is the one cross-site POST a browser sends without asking the
+    // server first, and keepalive lets it finish while the tab closes. The price is an
+    // unreadable reply — which is why every report is complete rather than incremental.
+    await fetch(inboxUrl, {method: 'POST', mode: 'no-cors', keepalive: final && json.length < 60000,
+                           headers: {'Content-Type': 'text/plain'}, body: json});
+    save(LS.sent, fp);
+  } catch (e) {
+    trackErr({kind: 'report', msg: String(e.message).slice(0, 200)});
+  }
+}
+function scheduleReport(){
+  if (!reportOn()) return;
+  clearTimeout(reportTimer);
+  // Several notes in a row become one request.
+  reportTimer = setTimeout(() => sendReport(false), 20000);
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden' && reportOn()){ clearTimeout(reportTimer); sendReport(true); }
+});
+
+// ── shared notes, shown under the reader's own ──────────────────────
+function sharedItemHTML(i){
+  return `<div class="shared"><div class="meta">
+      <span class="pill">${esc(i.k)}</span>${i.by ? `<span>${esc(i.by)}</span>` : ''}
+      ${i.d ? `<span>${esc(i.d)}</span>` : ''}<span>seen by ${esc(i.a)}</span></div>
+    ${i.x ? `<div><b>${esc(i.x)}</b></div>` : ''}<div class="stext">${esc(i.t || '')}</div></div>`;
+}
+function sharedHTML(ekey, ownNotes){
+  if (!access) return '';
+  const mine = new Set((ownNotes || []).map(n => n.id));
+  const items = (access.items[ekey] || []).filter(i => !(i.n && mine.has(i.n)));
+  if (!items.length) return '';
+  return `<div style="margin-top:10px"><b>Shared with you (${items.length})</b>
+    ${items.map(sharedItemHTML).join('')}</div>`;
+}
+function generalSharedHTML(){
+  if (!access) return '';
+  const items = access.items.general || [];
+  const onItems = Object.keys(access.items).filter(k => k !== 'general')
+    .reduce((n, k) => n + access.items[k].length, 0);
+  return `<div class="card"><b>Shared with Tier ${access.tier}</b>
+    <div class="meta" style="margin:4px 0 6px">${onItems} note${onItems === 1 ? '' : 's'} on bills,
+      members, organizations and hearings — they appear when you open each one.</div>
+    ${items.map(sharedItemHTML).join('')}</div>`;
+}
+
+start();
+</script>
+</body>
+</html>
