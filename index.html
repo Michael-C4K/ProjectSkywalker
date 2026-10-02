@@ -1,0 +1,3063 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<!-- The look (skywalker.css) and the shell (skywalker.js: themes, the tab tray, the
+     loading screen) are shared with leadership.html, so 'self' is allowed for styles
+     and scripts. Nothing from any other address is ever loaded. -->
+<!-- All data is untrusted input: legislative text, testimony presenter names, and
+     organization names all originate outside this office. The CSP is a backstop for
+     the escaping in the render path, not a substitute for it. -->
+<!-- Private site: never listed by search engines (robots.txt says the same). -->
+<meta name="robots" content="noindex, nofollow, noarchive">
+<meta http-equiv="Content-Security-Policy"
+      content="default-src 'none'; script-src 'unsafe-inline' 'self'; style-src 'unsafe-inline' 'self'; connect-src 'self' https://api.retool.com; img-src 'self' data:; base-uri 'none'; form-action 'none'">
+<title>Skywalker — Kansas Legislature</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='6' fill='%232f6fd6'/%3E%3Cpath d='M12 5l2 4.2 4.6.6-3.4 3.2.9 4.5L12 15.3 7.9 17.5l.9-4.5L5.4 9.8 10 9.2z' fill='%23fff'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="skywalker.css">
+</head>
+<body>
+<!-- The loading screen: the brand and the empty slot with the cursor round it, until the
+     first screen is ready or the lock screen takes its place (hideSplash). -->
+<div id="splash" aria-label="Loading"><div class="splash-box">
+  <div class="slot"><svg class="i"><use href="#i-star"/></svg></div>
+  <div class="splash-brand">SKYWALKER</div>
+  <div class="splash-msg"><i class="led"></i>Loading…</div>
+</div></div>
+<header>
+  <div class="bar">
+    <div class="brand">SKYWALKER<small><i class="led" id="led"></i><span id="asof">loading…</span></small></div>
+    <label class="search" id="qwrap" hidden>
+      <svg class="i"><use href="#i-search"/></svg>
+      <input id="q" type="search" placeholder="Search bills, sponsors, topics…" autocomplete="off" aria-label="Search">
+    </label>
+    <button id="keybtn" hidden class="pill keybtn" type="button" title="Enter your personal access code">Access code</button>
+    <button id="themebtn" type="button" aria-label="Colour theme and motion" aria-expanded="false" title="Colour theme"></button>
+  </div>
+  <!-- The theme panel: seven washes (the 3DS theme shop, in miniature) and the motion
+       switch. Each swatch shows the wash and the accent it comes with. -->
+  <div id="themepanel" hidden>
+    <h3>Colour</h3>
+    <div class="swatches">
+      <button class="swatch" data-theme-pick="slate"    style="--sw:#d3dae2;--sw2:#2f6fd6" title="Slate"><span>Slate</span></button>
+      <button class="swatch" data-theme-pick="rose"     style="--sw:#f7bccd;--sw2:#c92a6b" title="Rose"><span>Rose</span></button>
+      <button class="swatch" data-theme-pick="sky"      style="--sw:#b3d9f5;--sw2:#0c6fc4" title="Sky"><span>Sky</span></button>
+      <button class="swatch" data-theme-pick="mint"     style="--sw:#bfe8cd;--sw2:#1b7f4d" title="Mint"><span>Mint</span></button>
+      <button class="swatch" data-theme-pick="lavender" style="--sw:#d4c9f0;--sw2:#5d3fb8" title="Lavender"><span>Lavender</span></button>
+      <button class="swatch" data-theme-pick="peach"    style="--sw:#f9cfae;--sw2:#c2521c" title="Peach"><span>Peach</span></button>
+      <button class="swatch" data-theme-pick="night"    style="--sw:#1b1f27;--sw2:#7db6ff" title="Night"><span>Night</span></button>
+    </div>
+    <label class="toggle"><span>Motion<small>Drifting background, sheen, tiles that move</small></span>
+      <input type="checkbox" id="motionchk"><span class="knob"></span></label>
+  </div>
+</header>
+
+<main>
+  <!-- The tab tray. Watchlist is the home screen; Activity is a tab on phones and the
+       banner down the right on wide screens (the button hides itself there). -->
+  <!-- The tab tray is drawn by Skywalker.buildTray (skywalker.js) from the ONE menu both
+       pages share: Watchlist is the home screen; Activity is a tab on phones and the
+       banner down the right on wide screens; the leadership entries appear for tiers
+       1-3 and are links to leadership.html. The Analysis tab was taken off the menu
+       2026-09-30 at the office's request; its code (renderStats, tab 'stats') is kept. -->
+  <nav id="tabs" hidden></nav>
+  <div class="deck" id="deck">
+    <div id="view"></div>
+    <aside id="aside" hidden aria-label="Recent activity"></aside>
+  </div>
+</main>
+
+<dialog id="detail">
+  <div class="dhead">
+    <div class="grow"><span id="dno" class="bill-no"></span><div id="dtitle" class="title"></div></div>
+    <button class="close" id="dlink" aria-label="Copy link to this item"
+            title="Copy link">🔗</button>
+    <button class="close" id="dclose" aria-label="Close">×</button>
+  </div>
+  <div class="dbody" id="dbody"></div>
+</dialog>
+<!-- The one hover card (a popover, so it shows above an open dialog). -->
+<div id="hover" hidden popover="manual" role="dialog" aria-label="Details"></div>
+
+<button id="exportfab" hidden class="btn primary fab" type="button" title="Write your notes, flags and tags to a file"><svg class="i"><use href="#i-note"/></svg> Export notes</button>
+<label id="reportbox" hidden popover="manual" title="When ticked, notes you write from now on are sent to leadership">
+  <input type="checkbox" id="reportchk"> <span id="reportlbl">Report new notes to leadership</span>
+</label>
+
+<script src="skywalker.js"></script>
+<script>
+// ── config ──────────────────────────────────────────────────────────
+// Data lives beside the page. Relative paths so this works from any host.
+const BASE = './data-bundle';
+
+// Short marks per kind for the changes feed. changes.json comes from the change record
+// (schema/17_feed.sql), which reports more kinds than the two this feed used to build
+// for itself. An unrecognised kind renders its wording and no mark - never an error,
+// never a blank row: the database may learn a new kind years after this page was last
+// edited.
+//
+// DECLARED HERE, NOT INSIDE render(). tickHTML() is called from earlier in render()
+// than a const declared beside it would be initialised, so the first UNGROUPED change
+// threw "Cannot access 'TICK_MARK' before initialization" and emptied the feed. It did
+// not show up in testing because out of session every change arrives in a bulk group,
+// and groups do not call tickHTML at all - it would have surfaced on the first day of
+// session (found 2026-09-22).
+const TICK_MARK = {
+  bill_action: '', bill_new: 'NEW', bill_status: 'STATUS', bill_version: 'VERSION',
+  vote: 'VOTE', hearing: 'HEARING', hearing_status: 'HEARING', governor: 'GOVERNOR',
+  member_status: 'MEMBER', committee_roster: 'COMMITTEE'
+};
+// Version PDFs stay on the legislature's own site rather than being mirrored: they are
+// the authoritative printing, and 38 GB of documents has no business in a Pages repo.
+const DOCBASE = 'https://kslegislature.gov';
+const LS = {
+  watch: 'skywalker.watch.v1',   // bill keys the user tracks
+  seen:  'skywalker.seen.v1',    // per-bill last-seen change timestamp
+  theme: 'skywalker.theme.v1',
+  motion:'skywalker.motion.v1',  // the Motion switch in the theme panel
+  errs:  'skywalker.errlog.v1'   // ring buffer of runtime errors (see below)
+};
+
+// RETIRED 2026-09-30, NOT DELETED. The site is now for chairs and leadership only, not
+// rank-and-file members, so "report new notes to leadership" has no one to serve. The
+// box is no longer shown AND nothing is sent, even for someone who ticked it before -
+// hiding the box alone would have left those people silently reporting for ever. Every
+// part of the mechanism (the inbox workflow, process_inbox.py, note_inbox) is kept:
+// set this back to false to bring it back.
+// Declared up here, not beside reportOn(): revealApp() sits earlier in the file, and a
+// const read before its line runs throws (the TICK_MARK crash, 2026-09-22).
+const REPORTING_RETIRED = true;
+
+// ── error tracking ──────────────────────────────────────────────────
+// Pages is static: there is no server to phone home to, and the CSP forbids external
+// calls anyway (deliberately — no services, nothing the office doesn't own). So errors
+// are captured to a localStorage ring buffer on the DEVICE where they happened, a
+// badge appears on the data-age line, and one tap copies a full diagnostic report.
+// The support path this enables: a staffer says "it broke", you say "tap the badge,
+// paste what it copied" — instead of "what were you doing? what phone? can you
+// reproduce it?".
+//
+// Registered before anything else runs so even a syntax-level failure later in this
+// script gets recorded on the next load.
+const ERRMAX = 50;
+function trackErr(entry){
+  try {
+    const buf = JSON.parse(localStorage.getItem(LS.errs) || '[]');
+    buf.push({t: new Date().toISOString(), url: location.hash, ...entry});
+    while (buf.length > ERRMAX) buf.shift();
+    localStorage.setItem(LS.errs, JSON.stringify(buf));
+  } catch {}
+  try { updateErrBadge(); } catch {}
+}
+addEventListener('error', e => trackErr({
+  kind: 'js', msg: String(e.message || '').slice(0, 300),
+  src: `${(e.filename || '').split('/').pop()}:${e.lineno || 0}`}));
+addEventListener('unhandledrejection', e => trackErr({
+  kind: 'promise', msg: String(e.reason && e.reason.message || e.reason).slice(0, 300)}));
+
+function errBuf(){ try { return JSON.parse(localStorage.getItem(LS.errs) || '[]'); } catch { return []; } }
+
+function updateErrBadge(){
+  const el = document.getElementById('asof');
+  if (!el) return;
+  let b = document.getElementById('errbadge');
+  const n = errBuf().length;
+  if (!n){ if (b) b.remove(); return; }
+  if (!b){
+    b = document.createElement('button');
+    b.id = 'errbadge';
+    b.style.cssText = 'margin-left:6px;border:1px solid var(--bad);color:var(--bad);' +
+      'background:none;border-radius:6px;font-size:10px;padding:1px 7px;cursor:pointer';
+    b.title = 'Copy error report and clear';
+    b.onclick = async ev => {
+      ev.stopPropagation();
+      const report = JSON.stringify({
+        app: 'skywalker', data_as_of: manifest?.generated_at || null,
+        ua: navigator.userAgent, copied_at: new Date().toISOString(),
+        errors: errBuf(),
+      }, null, 1);
+      let copied = false;
+      try { await navigator.clipboard.writeText(report); copied = true; } catch {}
+      // clipboard needs https/localhost; fall back to showing the report so it can
+      // be copied by hand rather than silently doing nothing
+      if (!copied) prompt('Copy this error report:', report);
+      localStorage.removeItem(LS.errs);
+      updateErrBadge();
+    };
+    el.after(b);
+  }
+  b.textContent = `${n} error${n === 1 ? '' : 's'}`;
+}
+
+// ── tiny state helpers (preferences live on the DEVICE, by design) ──
+const load = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } };
+const save = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
+
+// Corrupt or hand-edited localStorage must not kill the page before any handler
+// attaches — `new Set(<non-iterable>)` throws at module scope.
+const stored = load(LS.watch, []);
+let watch = new Set(Array.isArray(stored) ? stored : []);
+let seen  = (() => { const s = load(LS.seen, {}); return (s && typeof s === 'object' && !Array.isArray(s)) ? s : {}; })();
+let manifest = null, billIndex = null, changes = [], upcoming = [];
+// Analytics load on demand — they are only needed by the Members and Analysis tabs.
+let members = null, allies = null, lifecycle = null;
+
+const key = b => `${b.b}|${b.n}`;             // biennium|billno
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+// ── colour that says where a bill is ────────────────────────────────
+// The same helpers and words as publish/site/leadership.html (there they build DOM
+// nodes, here HTML strings, as the rest of this page does). Keep them in step.
+const STAGE_WORD = {introduced: 'Introduced', committee: 'In committee', floor: 'On the floor',
+                    governor: 'Governor', law: 'Law', dead: 'Dead'};
+const STAGES = new Set(Object.keys(STAGE_WORD));
+// Only a known word ever becomes a class name: the stage arrives in the bundle, and
+// nothing from the bundle is put into markup unchecked.
+const stageOk = g => STAGES.has(g) ? g : null;
+const stageChip = (g, words) => stageOk(g)
+  ? `<span class="stage st-${g}">${esc(words || STAGE_WORD[g])}</span>` : '';
+const stageAttr = g => stageOk(g) ? ` data-stage="${g}"` : '';
+const stageCls = g => stageOk(g) ? ` st-${g}` : '';
+
+// ── breathing colour, and the cards behind the chips (2026-09-30) ──
+// Three small files, loaded once at boot, give the page who everyone is:
+//   roleOf      person id -> {party, role, title}       (what colour a name breathes)
+//   personInfo  person id -> {name, chamber, district, leads, chairs, sits}
+//   cmtList / cmtByKpid / cmtByName   the latest biennium's committees, with rosters,
+//                                     meeting time and room
+// A person who is a chair somewhere and a vice chair elsewhere counts as a chair;
+// anyone on the leadership roster counts as leadership. Everything the hover cards
+// show comes from here, so a card never waits on the network.
+let roleOf = {}, personInfo = {}, legByKpid = {}, cmtList = [], cmtByKpid = {}, cmtByName = {};
+let legsAll = [], cmtsAll = [], leadsAll = [], curBi = null;   // every biennium, for the Members tab
+let rolesPromise = null;
+// A committee's name as people say it: "House Education", "Senate Ways and Means";
+// special and joint committees keep their full title.
+const cmName = c => ((c.chamber === 'House' || c.chamber === 'Senate') ? c.chamber + ' ' : '')
+  + (c.title || c.display_name || '');
+// The same key for "House Committee on Education", "House Education" and "Education".
+const cmKey = s => String(s || '').toLowerCase().replace(/^(house|senate|joint)\s+/, '')
+  .replace(/^committee on\s+/, '').replace(/[^a-z]/g, '');
+const cmChamber = s => /^house\b/i.test(s || '') ? 'House' : /^senate\b/i.test(s || '') ? 'Senate' : '';
+function buildRoles(legs, cmts, leads, sched){
+  legs = Array.isArray(legs) ? legs : []; cmts = Array.isArray(cmts) ? cmts : []; leads = Array.isArray(leads) ? leads : [];
+  legsAll = legs; cmtsAll = cmts; leadsAll = leads;
+  scheduleByKpid = {};
+  for (const s of (Array.isArray(sched) ? sched : [])){
+    if (!s || !s.kpid) continue;
+    const e = (scheduleByKpid[s.kpid] ||= {weekly: [], dates: {}});
+    if (s.date) e.dates[s.date] = s; else e.weekly.push(s);
+  }
+  roleOf = {}; personInfo = {}; legByKpid = {}; cmtList = []; cmtByKpid = {}; cmtByName = {};
+  const latest = [...new Set(legs.map(l => l.biennium))].sort().reverse()[0];
+  curBi = latest || curBi;
+  const byKpid = {};
+  for (const l of legs){
+    if (l.biennium !== latest) continue;
+    const p = String(l.party || '').charAt(0).toUpperCase();
+    const pid = String(l.person_id);
+    roleOf[pid] = {party: p === 'R' || p === 'D' ? p : '', role: 'member', title: ''};
+    personInfo[pid] = {name: l.full_name || '', party: roleOf[pid].party, chamber: cap(l.chamber),
+                       district: l.district || '', leads: [], chairs: [], sits: []};
+    byKpid[l.kpid] = pid; legByKpid[l.kpid] = l;
+  }
+  const RANK = {member: 0, vice_chair: 1, chair: 2, leadership: 3};
+  const give = (kpid, role, title) => {
+    const r = roleOf[byKpid[kpid]];
+    if (r && RANK[role] > RANK[r.role]){ r.role = role; r.title = title; }
+  };
+  for (const c of cmts){
+    if (c.biennium !== latest) continue;
+    cmtList.push(c); cmtByKpid[c.kpid] = c;
+    (cmtByName[cmKey(c.title || c.display_name)] ||= []).push(c);
+    for (const m of roster(c)){
+      const pi = personInfo[byKpid[m.kpid]];
+      if (!pi) continue;
+      if (m.role === 'chair' || m.role === 'vice_chair'){
+        pi.chairs.push({c, role: m.role});
+        give(m.kpid, m.role, (m.role === 'chair' ? 'Chair of ' : 'Vice chair of ') + cmName(c));
+      } else pi.sits.push(c);
+    }
+  }
+  for (const l of leads){
+    if (l.biennium !== latest) continue;
+    give(l.member_kpid, 'leadership', l.title || 'Leadership');
+    const pi = personInfo[byKpid[l.member_kpid]];
+    if (pi && l.title) pi.leads.push(l.title);
+  }
+}
+// A committee's roster with each person once. The published roster repeats people
+// (the API gives members, chairs and vice chairs as three lists, and a chair is in
+// all of them); the highest role wins.
+function roster(c){
+  const RANK = {member: 0, vice_chair: 1, chair: 2};
+  const best = new Map();
+  for (const m of c.members || []){
+    const cur = best.get(m.kpid);
+    if (!cur || RANK[m.role] > RANK[cur.role]) best.set(m.kpid, {kpid: m.kpid, role: m.role});
+  }
+  return [...best.values()];
+}
+const cap = s => { s = String(s || ''); return s ? s.charAt(0).toUpperCase() + s.slice(1) : ''; };
+const biLabel = b => { const m = /^b(\d{4})_(\d{2})$/.exec(b || ''); return m ? `${m[1]}–${m[2]}` : String(b || ''); };
+// ── the committee schedule, and "meeting now" ──
+// data/committee_schedule.json comes from publish/committee_schedule.csv (see
+// docs/EDITING_THE_WEBSITE.md): days of the week, a start and an end, per committee.
+// The Legislature's API gives a time and a room but not the days, so until the office
+// fills that file in, nothing is ever "meeting now". Device time is used: everyone who
+// reads this is in Kansas.
+let scheduleByKpid = {};
+// A dated row (a moved or cancelled meeting) wins over the weekly pattern for that day.
+function meetingNow(kpid, now){
+  now = now || new Date();
+  const day = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  const hm = t => { const [h, m] = String(t).split(':').map(Number); return h * 60 + (m || 0); };
+  const cur = now.getHours() * 60 + now.getMinutes();
+  const within = s => s && s.start && s.end && cur >= hm(s.start) && cur < hm(s.end) ? s : null;
+  // The chairs' calendar knows today best, when it has been opened this visit.
+  const cd = cal.data ? (cal.data.days || []).find(d => d.date === day && d.committee_kpid === kpid) : null;
+  if (cd) return cd.cancelled ? null : within(cd);
+  const e = scheduleByKpid[kpid];
+  if (!e) return null;
+  const o = e.dates[day];
+  if (o) return o.cancelled ? null : within(o);
+  for (const s of e.weekly) if (Array.isArray(s.days) && s.days.includes(now.getDay()) && within(s)) return s;
+  return null;
+}
+const clock12 = t => { const [h, m] = String(t).split(':').map(Number); return `${((h + 11) % 12) + 1}:${String(m || 0).padStart(2, '0')} ${h < 12 ? 'am' : 'pm'}`; };
+const nowBox = (c, s) => `<div class="nowbox"><i class="led"></i>In committee now · ${esc(cmName(c))} · until ${esc(clock12(s.end))}${s.room ? ' · Room ' + esc(s.room) : ''}</div>`;
+function ensureRoles(){
+  if (!rolesPromise) rolesPromise = Promise.all([
+    getJSON('data/legislators.json').catch(() => []),
+    getJSON('data/committees.json').catch(() => []),
+    getJSON('data/leadership.json', {optional: true}).catch(() => []),
+    getJSON('data/committee_schedule.json', {optional: true}).catch(() => []),
+  ]).then(([legs, cmts, leads, sched]) => buildRoles(legs, cmts, leads, sched));
+  return rolesPromise;
+}
+// Every breathing chip on the page is on ONE clock: the delay winds each new chip
+// back to where the shared 18-second cycle (6 s for two colours, 9 s for three) is
+// right now, so chips drawn at different moments rise and fall together.
+const syncDelay = () => `animation-delay:-${Date.now() % 18000}ms`;
+const GLYPH = {chair: '◆', vice_chair: '◇', leadership: '★'};
+const ROLE_WORD = {chair: 'chair', vice_chair: 'vice chair', leadership: 'leadership'};
+// A legislator's name on its breathing colour. `party` is a fallback letter for
+// someone the roster does not know (an earlier biennium's roll call). Known people get
+// a hover card and a click (their page).
+function nameChip(name, pid, party){
+  const known = personInfo[String(pid)];
+  const r = roleOf[String(pid)] || {party: party === 'R' || party === 'D' ? party : '', role: 'member', title: ''};
+  const tip = [r.party === 'R' ? 'Republican' : r.party === 'D' ? 'Democrat' : '', r.title].filter(Boolean).join(' · ');
+  return `<span class="nm ${r.party} ${r.role}" style="${syncDelay()}" title="${esc(tip)}"${known ? ` data-hover="person" data-pid="${esc(pid)}" role="link" tabindex="0"` : ''}>${esc(name)}${
+    GLYPH[r.role] ? `<i aria-label="${ROLE_WORD[r.role]}">${GLYPH[r.role]}</i>` : ''}</span>`;
+}
+// Each committee's own pastel: a hue from its name, spread around the wheel so two
+// committees that sort together do not look alike. "House Committee on Judiciary",
+// "House Judiciary" and "Judiciary" (the journey's word) land on the same hue.
+function cmHue(name){
+  const k = cmKey(name);
+  let h = 0;
+  for (const ch of k) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return Math.round((h % 1000) * 137.508) % 360;
+}
+// opts.kpid names the exact committee when the caller knows it (hearings do).
+const cmChip = (name, opts = {}) => name
+  ? `<span class="cm" style="--h:${cmHue(name)};${syncDelay()}" data-hover="cmt" data-name="${esc(name)}" data-ch="${esc(opts.chamber || cmChamber(name))}" data-kpid="${esc(opts.kpid || '')}" role="button" tabindex="0">${esc(name)}</span>` : '';
+// The committees a chip could mean: the exact one by kpid, else by name, narrowed to
+// the chamber when the name or the caller says which.
+function findCmts(name, chamber, kpid){
+  if (kpid && cmtByKpid[kpid]) return [cmtByKpid[kpid]];
+  const list = cmtByName[cmKey(name)] || [];
+  const ch = chamber || cmChamber(name);
+  const narrowed = ch ? list.filter(c => c.chamber === ch) : [];
+  return narrowed.length ? narrowed : list;
+}
+const hueCls  = (stage, cmt) => stage === 'committee' && cmt ? ' hue' : '';
+const hueAttr = (stage, cmt) => stage === 'committee' && cmt ? ` style="--h:${cmHue(cmt)}"` : '';
+// H for House bills, S for Senate bills: orange and purple. With a biennium the number
+// also gets a hover card (feed rows, tables); inside a bill's own tile it does not,
+// because the tile already says all of it.
+const bnCls = n => /^S/i.test(String(n || '')) ? 'S' : /^H/i.test(String(n || '')) ? 'H' : '';
+const billNo = (n, bi) => `<span class="bill-no ${bnCls(n)}"${bi ? ` data-hover="bill" data-bi="${esc(bi)}" data-bn="${esc(n)}"` : ''}>${esc(n)}</span>`;
+function setDno(text, bn){
+  const el = document.getElementById('dno');
+  el.textContent = text; el.className = 'bill-no ' + (bn ? bnCls(text) : '');
+}
+// A sponsor is a legislator (with a person id) or a committee (a name only).
+function sponsorHTML(name, pid){
+  if (pid != null && pid !== '') return nameChip(name, pid);
+  if (/committee/i.test(name || '')) return cmChip(name);
+  return esc(name);
+}
+
+// ── the hover cards ─────────────────────────────────────────────────
+// Mouse over a name, a committee or a bill number and a card says what it is; click a
+// name for the legislator's page, click a committee to pin its card (that is how a
+// phone, which has no hover, gets at it). One card element for the whole page, shown
+// as a popover so it sits above an open dialog too. Everything on it is already on
+// the device: the roster files for people and committees, the bill index for bills
+// (loaded on the first bill card if it has not been yet).
+const hoverEl = document.getElementById('hover');
+let hoverKey = null, hoverTimer = null, hoverPinned = false, hoverAnchor = null;
+const canHover = matchMedia('(hover: hover)').matches;
+const row = (label, html) => html ? `<div class="hc-row"><b>${label}</b> ${html}</div>` : '';
+function personCardHTML(pid){
+  const pi = personInfo[String(pid)];
+  if (!pi) return '';
+  const chips = list => list.map(c => cmChip(cmName(c), {kpid: c.kpid})).join(' ');
+  const chairs = pi.chairs.filter(x => x.role === 'chair').map(x => x.c);
+  const vices  = pi.chairs.filter(x => x.role === 'vice_chair').map(x => x.c);
+  return `<div class="hc-head">${nameChip(pi.name, pid)}</div>
+    <div class="meta">${esc([pi.party === 'R' ? 'Republican' : pi.party === 'D' ? 'Democrat' : '', pi.chamber,
+      pi.district ? 'district ' + pi.district : ''].filter(Boolean).join(' · '))}</div>
+    ${row('Leadership', esc(pi.leads.join(' · ')))}
+    ${row('Chair of', chips(chairs))}${row('Vice chair of', chips(vices))}
+    ${row('Sits on', chips(pi.sits) || '<span class="meta">No committee</span>')}
+    ${(() => { const n = [...pi.chairs.map(x => x.c), ...pi.sits].map(c => [c, meetingNow(c.kpid)]).find(x => x[1]); return n ? nowBox(n[0], n[1]) : ''; })()}
+    <div class="hc-foot">Click the name for their page</div>`;
+}
+function cmtCardHTML(c){
+  const live = meetingNow(c.kpid);
+  const who = role => roster(c).filter(m => m.role === role)
+    .map(m => legByKpid[m.kpid]).filter(Boolean)
+    .map(l => nameChip(l.full_name || l.kpid, l.person_id, String(l.party || '').charAt(0)));
+  const members = who('member');
+  // The API gives a meeting time and a room; it does not say which days. When it gives
+  // neither, say so rather than leaving a blank (the office may fill these in later -
+  // see docs/WHERE_WE_ARE.md, "Still to do").
+  const meets = [c.mtg_time, c.mtg_room ? 'Room ' + c.mtg_room : ''].filter(Boolean).map(esc).join(' · ')
+    || '<span class="meta">Meeting time and room not in the data yet</span>';
+  return `<div class="hc-head">${cmChip(cmName(c), {kpid: c.kpid})}</div>
+    <div class="meta">${esc([c.chamber === 'Both' ? 'Joint' : c.chamber, c.committee_type,
+      c.status && c.status !== 'Active' ? cap(c.status) : ''].filter(Boolean).join(' · '))}</div>
+    ${live ? `<div class="nowbox"><i class="led"></i>Meeting now · until ${esc(clock12(live.end))}</div>` : ''}
+    ${row('Meets', meets)}
+    ${row('Chair', who('chair').join(' '))}${row('Vice chair', who('vice_chair').join(' '))}
+    ${row(`Members (${members.length})`, members.slice(0, 30).join(' ') + (members.length > 30 ? ` <span class="meta">+${members.length - 30} more</span>` : ''))}`;
+}
+function billHoverHTML(bi, bn){
+  if (!billIndex){
+    ensureBillIndex().then(() => { if (hoverKey === 'bill:' + bi + '|' + bn && hoverAnchor) showHover(hoverAnchor, hoverKey, billHoverHTML(bi, bn)); }).catch(() => {});
+    return `<div class="hc-head">${billNo(bn)}</div><div class="meta">Loading…</div>`;
+  }
+  const b = billIndex.find(x => x.b === bi && x.n === bn);
+  if (!b) return `<div class="hc-head">${billNo(bn)}</div><div class="meta">Not in the current data.</div>`;
+  const sp = (b.sp || []).map((nm, i) => sponsorHTML(nm, (b.si || [])[i]));
+  return `<div class="hc-head">${billNo(bn)} <span class="meta">${esc(biLabel(bi))}</span></div>
+    <div class="hc-title">${esc(b.t || b.l || '')}</div>
+    <div class="meta" style="margin-top:6px">${stageChip(b.g)} ${b.g === 'committee' && b.c ? cmChip(b.c) : ''} <span class="pill">${esc(b.s || 'status unknown')}</span></div>
+    ${row('Introduced by', sp.join(' '))}
+    <div class="hc-foot">Click the number to open the bill</div>`;
+}
+function hoverContent(t){
+  const kind = t.dataset.hover;
+  if (kind === 'person') return ['person:' + t.dataset.pid, personCardHTML(t.dataset.pid)];
+  if (kind === 'bill')   return ['bill:' + t.dataset.bi + '|' + t.dataset.bn, billHoverHTML(t.dataset.bi, t.dataset.bn)];
+  if (kind === 'cmt'){
+    const list = findCmts(t.dataset.name, t.dataset.ch, t.dataset.kpid);
+    if (!list.length) return ['cmt:' + t.dataset.name,
+      `<div class="hc-head">${cmChip(t.dataset.name)}</div><div class="meta">Not in this biennium's committee list.</div>`];
+    return ['cmt:' + list.map(c => c.kpid).join(','), list.map(cmtCardHTML).join('<hr class="hc-sep">')];
+  }
+  return [null, ''];
+}
+function showHover(anchor, key, html){
+  hoverKey = key; hoverAnchor = anchor;
+  hoverEl.innerHTML = html;
+  hoverEl.hidden = false;
+  try { if (!hoverEl.matches(':popover-open')) hoverEl.showPopover(); } catch {}
+  const r = anchor.getBoundingClientRect(), w = hoverEl.offsetWidth, h = hoverEl.offsetHeight;
+  let x = Math.min(Math.max(8, r.left), innerWidth - w - 8);
+  let y = r.bottom + 6;
+  if (y + h > innerHeight - 8) y = Math.max(8, r.top - h - 6);
+  hoverEl.style.left = x + 'px'; hoverEl.style.top = y + 'px';
+}
+function hideHover(){
+  clearTimeout(hoverTimer);
+  hoverKey = null; hoverPinned = false; hoverAnchor = null;
+  try { hoverEl.hidePopover(); } catch {}
+  hoverEl.hidden = true;
+}
+function scheduleHide(){
+  clearTimeout(hoverTimer);
+  hoverTimer = setTimeout(() => { if (!hoverPinned) hideHover(); }, 220);
+}
+document.addEventListener('mouseover', e => {
+  if (!canHover || hoverPinned) return;
+  const t = e.target.closest('[data-hover]');
+  if (!t){ if (hoverKey && !e.target.closest('#hover')) scheduleHide(); return; }
+  clearTimeout(hoverTimer);
+  hoverTimer = setTimeout(() => {
+    const [key, html] = hoverContent(t);
+    if (key && key !== hoverKey) showHover(t, key, html);
+  }, 160);
+});
+document.addEventListener('mouseout', e => {
+  if (!canHover || hoverPinned || !hoverKey) return;
+  const to = e.relatedTarget;
+  if (to && to.closest && (to.closest('#hover') || to.closest('[data-hover]'))) return;
+  scheduleHide();
+});
+// A click on a chip: a name opens the legislator; a committee pins (or unpins) its
+// card; a bill number is left to whatever holds it (a link, a tile).
+function chipClick(e){
+  const p = e.target.closest('[data-hover="person"]');
+  if (p){ e.stopPropagation(); e.preventDefault(); hideHover(); openPerson(p.dataset.pid); return true; }
+  const c = e.target.closest('[data-hover="cmt"]');
+  if (c){
+    e.stopPropagation(); e.preventDefault();
+    const [key, html] = hoverContent(c);
+    if (hoverPinned && key === hoverKey) hideHover();
+    else { showHover(c, key, html); hoverPinned = true; }
+    return true;
+  }
+  return false;
+}
+hoverEl.onclick = e => { chipClick(e); };
+document.addEventListener('click', e => {
+  if (hoverPinned && !e.target.closest('#hover') && !e.target.closest('[data-hover="cmt"]')) hideHover();
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && hoverKey) hideHover();
+  if ((e.key === 'Enter' || e.key === ' ') && e.target.matches && e.target.matches('[data-hover="person"],[data-hover="cmt"]')){
+    e.preventDefault(); chipClick({target: e.target, stopPropagation(){}, preventDefault(){}});
+  }
+});
+addEventListener('scroll', () => { if (hoverKey) hideHover(); }, {capture: true, passive: true});
+addEventListener('resize', () => { if (hoverKey) hideHover(); });
+function openPerson(pid){
+  ensureAnalytics().catch(() => {}).then(() => openMember(pid));
+}
+
+function journeyHTML(j){
+  if (!j || !Array.isArray(j.steps) || !j.steps.length) return '';
+  const g = stageOk(j.stage) || 'introduced';
+  // "House Taxation": the chamber from the step's label, so the chip finds the right
+  // committee (both chambers have a Taxation committee).
+  const here = j.steps.find(s => s.state === 'current' || s.state === 'died') || {};
+  const cmt = here.sub ? ((cmChamber(here.label) ? cmChamber(here.label) + ' ' : '') + here.sub) : '';
+  const fmt = d => d ? new Date(d + 'T12:00:00').toLocaleDateString([], {month: 'short', day: 'numeric'}) : '';
+  const WORD = {done: 'done', current: 'here now', died: 'stopped here', todo: 'not yet'};
+  const steps = j.steps.map((s, i) => {
+    const state = WORD[s.state] ? s.state : 'todo';
+    const sub = [s.sub, fmt(s.date)].filter(Boolean).join(' · ');
+    return `<div class="jstep ${state}${i === 2 ? ' turn' : ''}" role="listitem"
+        title="${esc(s.label + (s.sub ? ' - ' + s.sub : '') + (s.date ? ', ' + fmt(s.date) : '') + ' (' + WORD[state] + ')')}">
+      ${i === 2 ? '<span class="jturn">turnaround</span>' : ''}
+      <span class="jdot"></span><b>${esc(String(s.label || '').replace(' committee', ' cmte'))}</b>
+      ${sub ? `<span class="jsub">${esc(sub)}</span>` : ''}</div>`;
+  }).join('');
+  return `<div class="journey st-${g}${hueCls(g, cmt)}"${hueAttr(g, cmt)} role="list" aria-label="${esc('Where this bill is: ' + (j.where || ''))}">${steps}</div>
+    <div class="jnote">${stageChip(g, j.where)}${g === 'committee' && cmt ? ' ' + cmChip(cmt) : ''}${j.conference ? ' <span class="pill">Went to conference</span>' : ''}</div>`;
+}
+
+// Every member who voted, one dot each: Republicans, then Democrats, each dot filled by
+// how they voted and ringed in their party's colour.
+function seatMapHTML(votes){
+  const way = v => v === 'yea' ? 'y' : v === 'nay' ? 'n' : 'o';
+  const rank = {y: 0, n: 1, o: 2};
+  const pty = x => x.y === 'R' || x.y === 'D' ? x.y : '?';
+  const groups = ['R', 'D', '?'].map(p => votes.filter(x => pty(x) === p)
+    .sort((a, b) => rank[way(a.v)] - rank[way(b.v)]));
+  const cnt = (p, w) => votes.filter(x => pty(x) === p && way(x.v) === w).length;
+  const dots = groups.filter(g => g.length).map(g => g.map(x =>
+    `<span class="seat ${way(x.v)} ${pty(x)}" title="${esc((x.n || '') + ': ' + ({y: 'yes', n: 'no', o: 'did not vote'}[way(x.v)]))}"></span>`
+  ).join('')).join('<span class="gap"></span>');
+  return `<div class="seats" role="img" aria-label="Republicans ${cnt('R','y')} yes, ${cnt('R','n')} no; Democrats ${cnt('D','y')} yes, ${cnt('D','n')} no">${dots}</div>
+    <div class="seats-key"><span><span class="seat inline y"></span> Yes</span>
+      <span><span class="seat inline n"></span> No</span>
+      <span><span class="seat inline y R"></span> Republican</span>
+      <span><span class="seat inline y D"></span> Democrat</span></div>`;
+}
+
+// Themes, the Motion switch, the ripple, the tab tray and the loading screen are in
+// skywalker.js, shared with leadership.html.
+
+// Loading shapes in place of "Loading…": the screen keeps its layout while a file
+// arrives, and the shimmer says something is happening.
+const skeletonHTML = (n = 5) => `<div class="tiles" aria-busy="true" aria-label="Loading">${
+  Array.from({length: n}, () => `<div class="card row skel"><span class="ico"></span>
+    <div class="grow"><i style="width:28%"></i><i style="width:82%"></i><i style="width:50%"></i></div></div>`).join('')}</div>`;
+
+// ── boot ────────────────────────────────────────────────────────────
+// fetch() only rejects on network failure — a 404 resolves with an HTML body and
+// then .json() throws somewhere far away. Check res.ok at the source.
+// opts.optional: a file newer than the bundle may not exist yet (a 404 is not an error
+// worth a badge). Everything else is tracked.
+async function getJSON(path, opts = {}){
+  // Every failure mode is tracked with the path: HTTP status (missing/misdeployed
+  // file), network failure (offline, server down), and parse failure (truncated or
+  // corrupted JSON — which a half-finished deploy can produce).
+  let res;
+  try {
+    res = await fetch(`${BASE}/${path}`);
+  } catch (e) {
+    trackErr({kind: 'net', msg: String(e.message).slice(0, 200), src: path});
+    throw e;
+  }
+  if (!res.ok){
+    if (!(opts.optional && res.status === 404)) trackErr({kind: 'http', msg: `HTTP ${res.status}`, src: path});
+    throw new Error(`${path}: HTTP ${res.status}`);
+  }
+  try {
+    // Locked site: every data file is nonce + AES-GCM(gzip(json)) under the site key,
+    // which only a valid access code can unwrap (see the tiers section below).
+    if (!siteKey) return await res.json();
+    try {
+      return await openSealed(await res.arrayBuffer());
+    } catch (first) {
+      // GitHub Pages lets browsers cache files for 10 minutes. Right after the site key
+      // rotates (a revoked code) - or after the switch from the old open site - the
+      // cached copy is under an old key, or not encrypted at all, and will not open.
+      // Fetch past the cache once before calling it an error.
+      const fresh = await fetch(`${BASE}/${path}`, {cache: 'reload'});
+      if (!fresh.ok) throw first;
+      return await openSealed(await fresh.arrayBuffer());
+    }
+  } catch (e) {
+    trackErr({kind: 'parse', msg: String(e.message).slice(0, 200), src: path});
+    throw e;
+  }
+}
+let siteKey = null;   // CryptoKey for the whole site; null until a code unlocks it
+async function openSealed(buf){
+  const b = new Uint8Array(buf);
+  const pt = await crypto.subtle.decrypt({name: 'AES-GCM', iv: b.slice(0, 12)}, siteKey, b.slice(12));
+  const text = await new Response(
+    new Blob([pt]).stream().pipeThrough(new DecompressionStream('gzip'))).text();
+  return JSON.parse(text);
+}
+
+const hideSplash = () => Skywalker.hideSplash();
+
+function fail(msg, detail){
+  hideSplash();
+  document.getElementById('view').innerHTML =
+    `<div class="card empty"><p><strong>${esc(msg)}</strong></p>
+     <p><small>${esc(detail || '')}</small></p></div>`;
+}
+
+async function boot(){
+  updateErrBadge();   // errors from a previous visit surface immediately
+  try {
+    manifest = await getJSON('manifest.json');
+  } catch (e) {
+    fail('Could not load data bundle.', `Expected ${BASE}/manifest.json — ${e.message}`);
+    return;
+  }
+
+  // Always show data age. Staleness must be visible, never assumed.
+  const gen = new Date(manifest.generated_at);
+  const el = document.getElementById('asof');
+  if (isNaN(gen)) {
+    el.textContent = 'data age unknown';
+    el.className = 'stale';
+  } else {
+    el.textContent = `data as of ${gen.toLocaleString([], {month:'short', day:'numeric', hour:'numeric', minute:'2-digit'})}`;
+    if ((Date.now() - gen) / 36e5 > 36) el.className = 'stale';
+  }
+  document.getElementById('led').classList.toggle('stale', el.className === 'stale');
+
+  // Only the changes feed loads up front. The bill index (~2.5 MB) is deferred to
+  // the first search, which is the only thing that reads it — that is ~68% off
+  // first paint. Detail files load on drill-in.
+  // Scheduled hearings, shown above the feed. Absent or empty between sessions —
+  // both fine, so a failure here must never block boot.
+  const roles = ensureRoles();   // small; waited for below so names are coloured on first paint
+  getJSON('upcoming.json').then(u => { upcoming = Array.isArray(u) ? u : [];
+    if (currentTab === 'feed') render('feed'); renderAside(); }).catch(() => {});
+  try {
+    changes = await getJSON('changes.json');
+  } catch (e) {
+    // A blank page that still claims fresh data is the worst outcome for an
+    // alerting tool, so say plainly that the feed is missing.
+    fail('Activity feed unavailable.', e.message);
+    updateWatchCount();
+    return;
+  }
+  await roles;
+  updateWatchCount();
+  renderAside();
+  // Boot from the URL, not unconditionally to the home screen: a link someone sends
+  // you must land on what it points at. applyRoute() falls back to the watchlist when
+  // there is no route.
+  restoreViews();
+  applyRoute();
+  hideSplash();
+  ensureMe();      // roles for the menu, the To Do list, the server-side watchlist
+}
+
+// Loaded on demand, once.
+let billIndexPromise = null;
+function ensureBillIndex(){
+  if (!billIndexPromise) billIndexPromise = getJSON('index/bills.json').then(d => (billIndex = d));
+  return billIndexPromise;
+}
+let orgIndex = null, orgAppearances = null, orgPromise = null;
+// Hearings browse: metadata + the sharded testimony index, loaded on first open.
+// This is what makes the 23,622 budget-hearing testimony rows REACHABLE — they have
+// no bill number, so no bill page can ever show them; the hearing is their only home.
+let hearingsData = null, testimonyAll = null, hearingsPromise = null, hearingFilter = '';
+function ensureHearings(){
+  if (!hearingsPromise){
+    hearingsPromise = Promise.all([
+      getJSON('data/hearings.json'),
+      getJSON('index/testimony/index.json')
+        .then(ix => Promise.all(ix.map(sh => getJSON(`index/testimony/${sh.file}`))))
+        .then(shards => shards.flat()),
+    ]).then(([h, t]) => { hearingsData = h; testimonyAll = t; });
+  }
+  return hearingsPromise;
+}
+// 'ctte_h_apprprtns_1' -> 'House Apprprtns' as a last resort; real titles come from
+// the hearings metadata when the committee held an API-listed hearing.
+function cmtLabel(kpid){
+  const meta = (hearingsData || []).find(h => h.committee_kpid === kpid);
+  if (meta && meta.committee_title) return meta.committee_title;
+  return String(kpid || '')
+    .replace(/^ctte_/, '').replace(/_\d+$/, '')
+    .replace(/^h_/, 'House ').replace(/^s_/, 'Senate ').replace(/^jt_/, 'Joint ')
+    .replace(/_/g, ' ');
+}
+// Which slice of the organizations list is showing. Defaults to stakeholders.
+let orgGroup = 'stakeholders';
+function ensureOrgs(){
+  if (!orgPromise) orgPromise = Promise.all([
+    getJSON('index/orgs.json'), getJSON('data/org_appearances.json')
+  ]).then(([i,a]) => { orgIndex=i; orgAppearances=a; });
+  return orgPromise;
+}
+let analyticsPromise = null;
+function ensureAnalytics(){
+  if (!analyticsPromise) analyticsPromise = Promise.all([
+    getJSON('analytics/members.json'), getJSON('analytics/allies.json'),
+    getJSON('analytics/lifecycle.json')
+  ]).then(([m,a,l]) => { members=m; allies=a; lifecycle=l; });
+  return analyticsPromise;
+}
+
+function updateWatchCount(){
+  const n = watchedKeys().size;
+  const el = document.getElementById('wcount');
+  if (el) el.textContent = n ? String(n) : '';
+}
+
+// ── watchlist ───────────────────────────────────────────────────────
+// Two sources, one list. `watch` is the stars tapped on THIS device (localStorage, as
+// always). `serverWatch` is the bills this PERSON follows in the database - which is
+// how "Plan for Floor" puts a bill on a chair's watchlist from someone else's desk.
+// Adding with the star stays local (no API run); removing takes it out of both.
+let me = null;                      // the whoami answer: roles, committees, tasks, follows
+let serverWatch = new Set();
+const isWatched = k => watch.has(k) || serverWatch.has(k);
+const watchedKeys = () => new Set([...watch, ...serverWatch]);
+function toggleWatch(k, ev){
+  ev?.stopPropagation();
+  if (isWatched(k)){
+    watch.delete(k);
+    if (serverWatch.has(k)){
+      serverWatch.delete(k);
+      apiCall('unfollow', {subject_type: 'bill', subject_key: k}).then(r => {
+        if (r && r.ok && me){ me.follows = r.data; cacheMe(); }
+      });
+    }
+  } else watch.add(k);
+  save(LS.watch, [...watch]);
+  updateWatchCount();
+  render(currentTab);
+  renderAside();
+  // The list was just redrawn, so find the star again and let it pop.
+  const star = view.querySelector(`.star[data-watch="${CSS.escape(k)}"]`);
+  if (star) star.classList.add('pop');
+}
+
+// ── who is signed in (the live side's whoami) ───────────────────────
+// One API run, kept for ten minutes in sessionStorage so moving between the two pages
+// does not spend another. It decides which menu entries are shown, brings the To Do
+// list (what this person owes) and the bills the database has on their watchlist.
+// Nothing here is a permission: every action is checked again by api_call().
+const ME_KEY = 'skywalker.me.v1';
+function cacheMe(){
+  try { sessionStorage.setItem(ME_KEY, JSON.stringify({t: Date.now(), v: access.verifier.slice(0, 12), data: me})); } catch {}
+}
+function onMe(){
+  serverWatch = new Set(((me && me.follows) || []).filter(f => f.subject_type === 'bill').map(f => f.subject_key));
+  const tasks = (me && me.tasks) || [];
+  Skywalker.buildTray({nav: document.getElementById('tabs'), page: 'index', who: me || {tier: access ? access.tier : null},
+                       active: trayOf(currentTab), badges: {home: tasks.length}});
+  updateWatchCount();
+  if (currentTab === 'watch') render('watch'); else showTodoCard();
+}
+async function ensureMe(force){
+  if (!access) return null;
+  let c = null;
+  try { c = JSON.parse(sessionStorage.getItem(ME_KEY) || 'null'); } catch {}
+  const mine = c && c.v === access.verifier.slice(0, 12) && c.data;
+  if (mine && !me){ me = c.data; onMe(); }
+  if (!force && mine && Date.now() - c.t < 10 * 60 * 1000) return me;
+  const r = await apiCall('whoami');
+  if (r && r.ok){ me = r.data; cacheMe(); onMe(); }
+  return me;
+}
+// The card on every screen says what is owed - except on the watchlist, which lists it
+// in full just under the filters.
+function showTodoCard(){
+  Skywalker.showTodo(currentTab === 'watch' ? [] : ((me && me.tasks) || []), {href: 'leadership.html#home'});
+}
+// What this person owes, on the watchlist under the filters (and in the pop-up on every
+// screen, and on the To Do page). Tap a row to open its bill.
+function tasksHTML(){
+  const t = (me && me.tasks) || [];
+  if (!t.length) return '';
+  return `<div class="card todo">
+    <div class="row" style="align-items:center"><b class="grow">To Do · ${t.length}</b>
+      <a class="pill" href="leadership.html#home">Open To Do</a></div>` +
+    t.map(x => `<div class="taskrow${x.severity && x.severity !== 'normal' ? ' late' : ''}"
+        ${x.bill_no ? `data-open="${esc((x.biennium || me.biennium) + '|' + x.bill_no)}"` : ''}>
+      <div class="grow"><b>${esc(x.title || '')}</b>
+        ${x.detail ? `<div class="meta">${esc(x.detail)}</div>` : ''}
+        ${x.due_at ? `<div class="meta">Due ${esc(new Date(x.due_at).toLocaleDateString([], {weekday: 'short', month: 'short', day: 'numeric'}))}</div>` : ''}</div>
+      ${x.mine ? `<button class="pill" data-taskdone="${esc(x.task_id)}">Done</button>` : ''}</div>`).join('') + `</div>`;
+}
+
+// Changes newer than the last timestamp this device saw for that bill.
+function unseenFor(k){
+  const [b, n] = k.split('|');
+  const last = seen[k];
+  return changes.filter(c => c.biennium === b && c.bill_no === n && (!last || c.t > last));
+}
+function markSeen(k){
+  const items = unseenFor(k);
+  if (items.length){ seen[k] = items[0].t; save(LS.seen, seen); }
+}
+
+// ── rendering ───────────────────────────────────────────────────────
+let currentTab = 'watch';
+let lastTab = null, pendingFresh = false;
+const view = document.getElementById('view');
+
+function billCard(b, opts = {}){
+  const k = key(b);
+  const on = isWatched(k);
+  const unseen = opts.showNew ? unseenFor(k).length : 0;
+  const sp = (b.sp || []).map((nm, i) => sponsorHTML(nm, (b.si || [])[i]));
+  // The tile: an icon square in the stage's colour (with the 3DS green dot when the
+  // bill has changed since it was last opened), then the words, then the star - or,
+  // while the watchlist is being edited, a Remove button in its place.
+  // The biennium is said only when the list mixes bienniums ("All"), and as 2025–26,
+  // not as the database's own code.
+  return `<div class="card row${stageCls(b.g)}${hueCls(b.g, b.c)}"${stageAttr(b.g)}${hueAttr(b.g, b.c)} data-open="${esc(k)}" role="button" tabindex="0"
+    aria-label="Open ${esc(b.n)}">
+    <span class="ico"><svg class="i"><use href="#i-bill"/></svg>${unseen ? '<i class="dot"></i>' : ''}</span>
+    <div class="grow">
+      ${billNo(b.n)}
+      ${unseen ? `<span class="pill warn">${unseen} new</span>` : ''}
+      ${annotBadge('bill', {biennium: b.b, bill_no: b.n})}
+      <div class="title">${esc(b.t || b.l || '')}</div>
+      <div class="meta">
+        ${stageChip(b.g)}
+        ${b.g === 'committee' && b.c ? cmChip(b.c) : ''}
+        <span class="pill">${esc(b.s || 'Status unknown')}</span>
+        ${sp.length ? `<span>${sp.slice(0,2).join(' ')}${sp.length>2?' +'+(sp.length-2):''}</span>` : ''}
+        ${billView.bi === 'all' ? `<span class="pill">${esc(biLabel(b.b))}</span>` : ''}
+      </div>
+    </div>
+    ${opts.edit ? `<button class="pill bad" data-watch="${esc(k)}" style="align-self:center">Remove</button>`
+      : `<button class="star ${on?'on':''}" data-watch="${esc(k)}" aria-label="${on?'Remove from watchlist':'Add to watchlist'}">${on?'★':'☆'}</button>`}
+  </div>`;
+}
+
+// ── the activity feed: one string, drawn as the Activity tab AND as the banner ──
+function feedGroups(){
+  // End-of-session floods the feed with hundreds of identical bulk actions
+  // ("Died on Calendar" x60), which made the landing screen a wall of one repeated
+  // row. Collapse consecutive identical actions into a single expandable line so
+  // the feed shows distinct EVENTS rather than distinct bills.
+  const groups = [];
+  for (const c of changes.slice(0, 400)){
+    const key = `${c.kind}|${c.label}|${(c.t||'').slice(0,16)}`;
+    const last = groups[groups.length-1];
+    if (last && last.key === key) last.items.push(c);
+    else groups.push({ key, label: c.label, kind: c.kind, t: c.t, items: [c] });
+    if (groups.length >= 60) break;
+  }
+  return groups;
+}
+function recentHTML(){
+  const groups = feedGroups();
+  // Every bill number in a grouped row is a real link. These groups used to render
+  // the numbers as flat text, so the landing page NAMED dozens of bills that could
+  // not be opened from where they were named.
+  const chip = (c) => c.bill_no
+    ? `<a class="bn${stageCls(c.stage)} ${bnCls(c.bill_no)}"${stageAttr(c.stage)} data-hover="bill" data-bi="${esc(c.biennium)}" data-bn="${esc(c.bill_no)}" href="#/bill/${encodeURIComponent(c.biennium)}/${encodeURIComponent(c.bill_no)}">${esc(c.bill_no)}</a>` : '';
+  return upcomingHTML() +
+    `<h2>Recent activity</h2>` + (groups.length ? groups.map(g => {
+    if (g.items.length === 1) return tickHTML(g.items[0]);
+    const bills = g.items.filter(c => c.bill_no);
+    // One stripe for the group when every bill in it is at the same stage.
+    const gs = g.items.every(c => c.stage && c.stage === g.items[0].stage) ? g.items[0].stage : null;
+    return `<div class="tick${stageCls(gs)}"${stageAttr(gs)}>
+      <b>${g.items.length} bills</b> ${esc(g.label || g.kind)}
+      <div>${new Date(g.t).toLocaleString([], {month:'short', day:'numeric', hour:'numeric', minute:'2-digit'})}
+        — ${bills.slice(0,8).map(chip).join(', ')}${bills.length>8?` +${bills.length-8} more`:''}</div>
+    </div>`;
+  }).join('') : `<div class="card empty">No recent activity.</div>`);
+}
+
+// "What's scheduled" sits above "what happened" — during session it is the
+// most-consulted screen in the office; between sessions it renders nothing.
+function upcomingHTML(){
+  if (!upcoming.length) return '';
+  const chip = (u, bn) =>
+    `<a class="bn ${bnCls(bn)}" data-hover="bill" data-bi="${esc(u.biennium)}" data-bn="${esc(bn)}" href="#/bill/${encodeURIComponent(u.biennium)}/${encodeURIComponent(bn)}">${esc(bn)}</a>`;
+  return `<h2>Coming up</h2>` + upcoming.slice(0, 20).map(u => `
+    <div class="tick${u.committee ? ' hue' : ''}"${u.committee ? ` style="--h:${cmHue(u.committee)}"` : ''}>
+      <b>${u.t ? new Date(u.t).toLocaleString([], {weekday:'short', month:'short',
+          day:'numeric', hour:'numeric', minute:'2-digit'}) : 'TBD'}</b>
+      ${cmChip(u.committee)}${u.room ? ` — ${esc(u.room)}` : ''}
+      <div>${(u.bills || []).map(bn => chip(u, bn)).join(', ') || 'Agenda not posted'}</div>
+    </div>`).join('');
+}
+
+// One feed row. 'NEW' means UNSEEN, not merely watched — labelling every watched
+// bill NEW forever just teaches people to ignore the badge.
+function tickHTML(c){
+  const k = `${c.biennium}|${c.bill_no}`;
+  const isNew = isWatched(k) && unseenFor(k).length > 0;
+  const mark = TICK_MARK[c.kind];
+  // `t` is when the system LEARNED of it; `happened` is when it happened. The title
+  // says both, because "why is a three-day-old hearing at the top?" is a fair question.
+  const when = new Date(c.t);
+  const title = 'Learned ' + when.toLocaleString()
+    + (c.happened ? ' · Happened ' + new Date(c.happened).toLocaleString() : '');
+  return `<div class="tick ${isNew ? 'new' : ''}${stageCls(c.stage)}${hueCls(c.stage, c.c)}"${stageAttr(c.stage)}${hueAttr(c.stage, c.c)} ${c.bill_no ? `data-open="${esc(k)}"` : ''}>
+    <b>${c.bill_no ? billNo(c.bill_no, c.biennium) : '—'}</b> ${c.bill_no ? stageChip(c.stage) + ' ' : ''}${c.stage === 'committee' && c.c ? cmChip(c.c) + ' ' : ''}${mark ? `<span class="pill">${esc(mark)}</span> ` : ''}${esc(c.label || c.kind || '')}
+    ${c.tally && c.tally.yea != null ? ` <span class="pill">${esc(c.tally.yea)}–${esc(c.tally.nay)}</span>` : ''}
+    <div title="${esc(title)}">${isNaN(when) ? '' : when.toLocaleString([], {month:'short', day:'numeric', hour:'numeric', minute:'2-digit'})}</div>
+  </div>`;
+}
+
+// The banner down the right of wide screens (CSS shows it from 1000px; below that
+// the Activity tab shows the same thing). Sixty rows, cheap to redraw, so it is
+// redrawn whenever what it shows could have changed: the feed arriving, a watch
+// toggled, a bill opened (which clears its NEW).
+function renderAside(){
+  const a = document.getElementById('aside');
+  if (!changes.length && !upcoming.length) return;
+  a.innerHTML = `<div class="aside-head"><i class="${document.getElementById('led').className}"></i>Activity</div>` +
+    feedToggleHTML(asideMode, 'aside') + (asideMode === 'go' ? generalOrdersHTML() : recentHTML());
+}
+
+// ── the bill bar: biennium (latest by default), chamber, where it is, sort ──
+const billView = {bi: null, chamber: 'all', stage: 'all', sort: 'match'};
+const STAGE_ORDER = {introduced: 0, committee: 1, floor: 2, governor: 3, law: 4, dead: 5};
+const billNum = n => { const m = /^([A-Z]+)\s*(\d+)/i.exec(String(n || '')); return m ? [m[1].toUpperCase(), parseInt(m[2], 10)] : ['', 0]; };
+function billBienniums(){ return [...new Set((billIndex || []).map(b => b.b))].sort().reverse(); }
+function filterBills(list){
+  const bis = billBienniums();
+  if (!bis.includes(billView.bi) && billView.bi !== 'all') billView.bi = bis[0] || 'all';
+  return list.filter(b => (billView.bi === 'all' || b.b === billView.bi)
+    && (billView.chamber === 'all' || bnCls(b.n) === billView.chamber)
+    && (billView.stage === 'all' || b.g === billView.stage));
+}
+function sortBills(list, searching){
+  const byNo = (a, b) => { const [ca, na] = billNum(a.n), [cb, nb] = billNum(b.n); return ca.localeCompare(cb) || na - nb || String(a.b).localeCompare(String(b.b)); };
+  if (billView.sort === 'number' || (billView.sort === 'match' && !searching)) return [...list].sort(byNo);
+  if (billView.sort === 'stage') return [...list].sort((a, b) => (STAGE_ORDER[a.g] ?? 9) - (STAGE_ORDER[b.g] ?? 9) || byNo(a, b));
+  return list;
+}
+function billBarHTML(searching){
+  return `<div class="fbar">
+    ${fbarGroup('Biennium', 'bv-bi', [...billBienniums().map(b => [b, biLabel(b)]), ['all', 'All']], billView.bi)}
+    ${fbarGroup('Chamber', 'bv-chamber', [['all', 'Both'], ['H', 'House'], ['S', 'Senate']], billView.chamber)}
+    ${fbarGroup('Where', 'bv-stage', [['all', 'Anywhere'], ['committee', 'In committee'], ['floor', 'On the floor'], ['governor', 'Governor'], ['law', 'Law'], ['dead', 'Dead']], billView.stage)}
+    ${fbarGroup('Sort', 'bv-sort', [...(searching ? [['match', 'Best match']] : []), ['number', 'Number'], ['stage', 'Where it is']], billView.sort === 'match' && !searching ? 'number' : billView.sort)}
+  </div>`;
+}
+
+// ── like a browser: every tab remembers where you were ──────────────
+// Leave a screen and come back and it is as you left it: the same scroll position, the
+// same text in the box, the same filters, the same part of a combined screen. Kept in
+// sessionStorage, so it also survives a trip to the leadership page and back.
+// render() is the door: it notes the screen being left, restores the one being opened,
+// and hands the painting to draw(). Redrawing the SAME screen (a filter, a file
+// arriving) goes through the same door and changes nothing about the place.
+const TABMEM_KEY = 'skywalker.tabmem.v1';
+const tabMem = (() => { try { return JSON.parse(sessionStorage.getItem(TABMEM_KEY)) || {}; } catch { return {}; } })();
+let wantScroll = null;
+let bpTab = 'search', peopleTab = 'members';   // which part of Bills & People was open last
+let asideMode = 'recent';                      // the banner's own switch: recent | go
+let watchMode = 'mine', watchEdit = false;     // the watchlist: mine | board (leadership)
+const trayOf = tab => ({members: 'search', orgs: 'search', notes: 'search', stats: 'search', hearings: 'feed'})[tab] || tab;
+function rememberTab(){
+  if (lastTab) tabMem[lastTab] = {y: Math.round(scrollY), q: document.getElementById('q').value};
+  tabMem._views = {billView, memberView, feedMode, asideMode, orgGroup, bpTab, peopleTab, watchMode, calMode,
+                   calMonth: cal.month ? cal.month.toISOString() : null};
+  try { sessionStorage.setItem(TABMEM_KEY, JSON.stringify(tabMem)); } catch {}
+}
+addEventListener('pagehide', rememberTab);
+function restoreViews(){
+  const v = tabMem._views;
+  if (!v) return;
+  if (v.billView) Object.assign(billView, v.billView);
+  if (v.memberView) Object.assign(memberView, v.memberView);
+  if (['recent', 'go', 'hearings'].includes(v.feedMode)) feedMode = v.feedMode;
+  if (['recent', 'go'].includes(v.asideMode)) asideMode = v.asideMode;
+  if (v.orgGroup) orgGroup = v.orgGroup;
+  if (['search', 'members', 'orgs'].includes(v.bpTab)) bpTab = v.bpTab;
+  if (['members', 'orgs'].includes(v.peopleTab)) peopleTab = v.peopleTab;
+  if (['mine', 'board'].includes(v.watchMode)) watchMode = v.watchMode;
+  if (['days', 'plans', 'decisions'].includes(v.calMode)) calMode = v.calMode;
+  if (v.calMonth){ const d = new Date(v.calMonth); if (!isNaN(d)) cal.month = d; }
+}
+function render(tab, opts = {}){
+  const qEl = document.getElementById('q');
+  if (tab !== lastTab){
+    rememberTab();
+    const m = tabMem[tab];
+    qEl.value = opts.q != null ? opts.q : ((m && m.q) || '');
+    wantScroll = opts.q != null ? 0 : ((m && m.y) || 0);
+  } else if (opts.q != null) qEl.value = opts.q;
+  const term = qEl.value.trim().toLowerCase();
+  if (tab === 'members') memberFilter = term;
+  if (tab === 'orgs') orgFilter = term;
+  if (tab === 'feed' && feedMode === 'hearings') hearingFilter = term;
+  if (tab === 'search' || tab === 'members' || tab === 'orgs') bpTab = tab;
+  if (tab === 'members' || tab === 'orgs') peopleTab = tab;
+  draw(tab);
+  // Back to where they were - once the real content is up, not over the loading shapes.
+  if (wantScroll != null && !pendingFresh){
+    const y = wantScroll; wantScroll = null;
+    requestAnimationFrame(() => scrollTo(0, y));
+  }
+}
+
+// ── Bills & People: one screen, a two-button switch at the top ──────
+// Bills, and People (members and organizations). Notes used to be a tab of its own; it
+// is the "My notes" button here, and a note or tag is added from the bill or the
+// person it is about.
+function bpBarHTML(){
+  const people = currentTab === 'members' || currentTab === 'orgs';
+  const n = Object.keys(annot).length;
+  return `<div class="bpbar"><span></span>
+      <div class="subnav big"><button data-bp="search" class="${!people && currentTab !== 'notes' ? 'on' : ''}">Bills</button>
+        <button data-bp="people" class="${people ? 'on' : ''}">People</button></div>
+      <button class="pill${currentTab === 'notes' ? ' on' : ''}" data-bp="notes">My notes${n ? ' · ' + n : ''}</button></div>` +
+    (people ? `<div class="subnav" style="margin:0 auto 10px"><button data-bp="members" class="${currentTab === 'members' ? 'on' : ''}">Members</button>
+      <button data-bp="orgs" class="${currentTab === 'orgs' ? 'on' : ''}">Organizations</button></div>` : '');
+}
+
+// ── the leadership board, as a watchlist option ─────────────────────
+// The bills leadership is tracking for a reason - flagged, a brief owed, a whip count
+// open, a chairman's plan moving, in the drawer - as tiles like any other list. It
+// used to be a screen of its own on the leadership page (asked 2026-10-01 to fold it
+// in here). api_call() answers `board` to leadership only.
+const PLAN_LABELS = {
+  no_current_plan: 'No current plan', planning_hearing: 'Planning a hearing',
+  hearing_scheduled: 'Hearing scheduled', planning_to_work: 'Planning to work it',
+  working_amendments: 'Working amendments', waiting_on_information: 'Waiting on information',
+  possible_action: 'Possible action', final_action_planned: 'Final action planned',
+  holding: 'Holding', in_the_drawer: 'In the drawer'
+};
+const board = {rows: null, loading: false, error: ''};
+async function loadBoard(){
+  board.loading = true; board.error = '';
+  const r = await apiCall('board', {});
+  board.loading = false;
+  if (r && r.ok){
+    const byBill = new Map();
+    const add = (rows, tag) => (rows || []).forEach(x => {
+      const cur = byBill.get(x.bill_no) || {tags: []};
+      Object.entries(x).forEach(([k, v]) => { if (v != null && cur[k] == null) cur[k] = v; });
+      if (!cur.tags.includes(tag)) cur.tags.push(tag);
+      byBill.set(x.bill_no, cur);
+    });
+    // The order of these is the order of the list: what needs a decision first.
+    add(r.data.attention, 'Attention'); add(r.data.briefs_outstanding, 'Brief due');
+    add(r.data.whip_active, 'Whip'); add(r.data.moving, 'Moving'); add(r.data.drawer, 'Drawer');
+    board.rows = [...byBill.values()];
+  } else board.error = (r && r.error === 'leadership only') ? 'The board is for leadership.' : 'Could not load the board.';
+  if (currentTab === 'watch' && watchMode === 'board') render('watch');
+}
+function boardTile(r){
+  const b = billIndex ? billIndex.find(x => x.b === r.biennium && x.n === r.bill_no) : null;
+  const stage = r.stage || (b && b.g), k = `${r.biennium}|${r.bill_no}`, on = isWatched(k);
+  const pills = [];
+  if (r.tags.includes('Attention')) pills.push('<span class="pill bad">Needs attention</span>');
+  if (r.tags.includes('Brief due')) pills.push(`<span class="pill warn">Brief due${r.brief_status ? ' · ' + esc(cap(String(r.brief_status).replace(/_/g, ' '))) : ''}</span>`);
+  if (r.whip_updated_at) pills.push(`<span class="pill">Whip: ${(r.yes || 0) + (r.lean_yes || 0)} yes · ${(r.no || 0) + (r.lean_no || 0)} no · ${r.undecided || 0} undecided</span>`);
+  if (r.chair_plan) pills.push(`<span class="pill">${esc(PLAN_LABELS[r.chair_plan] || cap(String(r.chair_plan).replace(/_/g, ' ')))}</span>`);
+  if (r.deadline) pills.push(`<span class="pill warn">Deadline ${esc(r.deadline)}</span>`);
+  return `<div class="card row${stageCls(stage)}"${stageAttr(stage)} data-open="${esc(k)}" role="button" tabindex="0" aria-label="Open ${esc(r.bill_no)}">
+    <span class="ico"><svg class="i"><use href="#i-bill"/></svg></span>
+    <div class="grow">${billNo(r.bill_no)}
+      <div class="title">${esc(r.short_title || (b && (b.t || b.l)) || '')}</div>
+      <div class="meta">${stageChip(stage)} ${r.committee ? cmChip(r.committee) : ''} ${pills.join(' ')}</div></div>
+    <button class="star ${on ? 'on' : ''}" data-watch="${esc(k)}" aria-label="${on ? 'Remove from watchlist' : 'Add to watchlist'}">${on ? '★' : '☆'}</button></div>`;
+}
+
+function drawWatch(){
+  const lead = !!(me && me.is_leadership);
+  const modeBar = lead ? `<div class="subnav" style="margin:0 0 10px">
+      <button data-watchmode="mine" class="${watchMode !== 'board' ? 'on' : ''}">My watchlist</button>
+      <button data-watchmode="board" class="${watchMode === 'board' ? 'on' : ''}">Leadership board</button></div>` : '';
+  if (lead && watchMode === 'board'){
+    if (!board.rows && !board.loading && !board.error) loadBoard();
+    if (!board.rows){
+      view.innerHTML = modeBar + (board.error ? `<div class="bubble" style="margin-top:8px"><b>${esc(board.error)}</b></div>` : skeletonHTML(4));
+      return;
+    }
+    if (!billIndex) ensureBillIndex().then(() => { if (currentTab === 'watch' && watchMode === 'board') render('watch'); }).catch(() => {});
+    view.innerHTML = modeBar + tasksHTML() +
+      `<div class="count">${board.rows.length} bill${board.rows.length === 1 ? '' : 's'} leadership is tracking
+        <button class="tagx" data-boardrefresh="1" style="color:var(--accent);text-transform:none;letter-spacing:0">Refresh</button></div>` +
+      (board.rows.length ? `<div class="tiles">${board.rows.map(boardTile).join('')}</div>`
+        : `<div class="bubble" style="margin-top:8px"><b>Nothing on the board yet.</b>A bill appears here when it is flagged, a brief is owed, a whip count is open or a chairman has a plan for it.</div>`);
+    return;
+  }
+  const keys = watchedKeys();
+  if (!keys.size){
+    // The empty home screen: the bubble and the empty slot, as the 3DS shows them
+    // when there is no game card.
+    view.innerHTML = modeBar + tasksHTML() + `
+      <div class="bubble"><b>Nothing on your watchlist yet.</b>
+        Tap ☆ on any bill to follow it here. Your list stays on this device.</div>
+      <div class="slot" aria-hidden="true">☆</div>
+      <div class="slot-actions">
+        <a class="btn primary" href="#/search"><svg class="i"><use href="#i-bill"/></svg> Browse bills</a>
+        <a class="btn" href="#/feed"><svg class="i"><use href="#i-pulse"/></svg> See what changed</a>
+      </div>`;
+    return;
+  }
+  // The watchlist needs the index to resolve keys to bills.
+  if (!billIndex){
+    view.innerHTML = modeBar + skeletonHTML(4); pendingFresh = true;
+    ensureBillIndex().then(() => render('watch'))
+      .catch(e => fail('Could not load bill index.', e.message));
+    return;
+  }
+  const all = billIndex.filter(b => keys.has(key(b)));
+  const mine = sortBills(filterBills(all));
+  const withNews = mine.filter(b => unseenFor(key(b)).length);
+  // A watched key with no matching bill (dropped from the index, or an older
+  // biennium) previously left a permanent dead entry with no way to clear it.
+  const known = new Set(all.map(b => key(b)));
+  const orphans = [...keys].filter(k => !known.has(k));
+  const rest = mine.filter(b => !withNews.includes(b));
+  // Removing: the star on any tile takes a bill off; "Remove…" turns every star into a
+  // plain Remove button and offers "Remove all shown" for clearing a filtered list.
+  const tools = `<span style="margin-left:auto;display:flex;gap:6px">
+      ${watchEdit && mine.length ? `<button class="pill bad" data-watchedit="all">Remove all shown</button>` : ''}
+      <button class="pill${watchEdit ? ' on' : ''}" data-watchedit="toggle">${watchEdit ? 'Done' : 'Remove…'}</button></span>`;
+  view.innerHTML = modeBar + billBarHTML(false) + tasksHTML() +
+    (!mine.length ? `<div class="bubble"><b>Nothing here with these choices.</b>Try another biennium, chamber or stage above.</div>` : '') +
+    (withNews.length ? `<h2>Changed since you last looked${rest.length ? '' : tools}</h2><div class="tiles">` +
+      withNews.map(b => billCard(b, {showNew: true, edit: watchEdit})).join('') + `</div>` : '') +
+    (rest.length ? `<h2>Tracking (${mine.length})${tools}</h2><div class="tiles">` +
+      rest.map(b => billCard(b, {edit: watchEdit})).join('') + `</div>` : '') +
+    (orphans.length ? `<h2>No longer available (${orphans.length})</h2><div class="tiles">` + orphans.map(k => `
+      <div class="card row"><span class="ico"><svg class="i"><use href="#i-bill"/></svg></span>
+      <div class="grow">${billNo(k.split('|')[1], k.split('|')[0])}
+      <div class="meta">Not in the current data — may be from an earlier biennium</div></div>
+      <button class="pill bad" data-watch="${esc(k)}" style="align-self:center">Remove</button></div>`).join('') + `</div>` : '');
+}
+
+function draw(tab){
+  currentTab = tab;
+  hideHover();
+  document.getElementById('exportfab').hidden = tab !== 'notes';
+  // Tiles slide in when the SCREEN changes (a tab, or a list arriving), never on a
+  // keystroke in the search box: that redraws the same screen and must hold still.
+  view.classList.toggle('arrive', tab !== lastTab || pendingFresh);
+  lastTab = tab; pendingFresh = false;
+  Skywalker.setActive(document.getElementById('tabs'), trayOf(tab));
+  showTodoCard();
+  // The box FILTERS people, organizations and hearings and SEARCHES bills elsewhere.
+  document.getElementById('q').placeholder =
+    tab === 'members' ? 'Filter members…' :
+    tab === 'orgs'    ? 'Filter organizations…' :
+    (tab === 'feed' && feedMode === 'hearings') ? 'Filter by committee or bill…' :
+    'Search bills, sponsors, topics…';
+
+  if (tab === 'notes') return renderNotes();
+  if (tab === 'calendar') return renderCalendar();
+
+  if (tab === 'orgs'){
+    if (!orgIndex){
+      view.innerHTML = bpBarHTML() + skeletonHTML(6); pendingFresh = true;
+      ensureOrgs().then(() => { if (currentTab === 'orgs') render('orgs'); })
+        .catch(e => fail('Could not load organizations.', e.message));
+      return;
+    }
+    return renderOrgs();
+  }
+
+  if (tab === 'members' || tab === 'stats'){
+    if (!members){
+      view.innerHTML = bpBarHTML() + skeletonHTML(6); pendingFresh = true;
+      ensureAnalytics().then(() => { if (currentTab === tab) render(tab); })
+        .catch(e => fail('Could not load analytics.', e.message));
+      return;
+    }
+    return tab === 'members' ? renderMembers() : renderStats();
+  }
+
+  // Activity: what has happened, what is coming to the floor, and the hearings.
+  if (tab === 'feed'){
+    const top = feedToggleHTML(feedMode, 'main');
+    if (feedMode === 'hearings'){
+      if (!testimonyAll){
+        view.innerHTML = top + skeletonHTML(6); pendingFresh = true;
+        ensureHearings().then(() => { if (currentTab === 'feed' && feedMode === 'hearings') render('feed'); })
+          .catch(e => fail('Could not load hearings.', e.message));
+        return;
+      }
+      view.innerHTML = top + hearingsHTML();
+      return;
+    }
+    view.innerHTML = top + (feedMode === 'go' ? generalOrdersHTML() : recentHTML());
+    return;
+  }
+
+  if (tab === 'watch') return drawWatch();
+
+  // Bills: every bill of the chosen biennium (the bar narrows and sorts it), or the
+  // search hits when something is typed in the box at the top.
+  const q = document.getElementById('q').value.trim();
+  if (!billIndex){
+    view.innerHTML = bpBarHTML() + skeletonHTML(4); pendingFresh = true;
+    ensureBillIndex().then(() => { if (currentTab === 'search') render('search'); })
+      .catch(e => fail('Could not load the bill index.', e.message));
+    return;
+  }
+  if (!q){
+    const list = sortBills(filterBills(billIndex));
+    view.innerHTML = bpBarHTML() + billBarHTML(false) +
+      `<div class="count">${list.length.toLocaleString()} bill${list.length === 1 ? '' : 's'}${
+        billView.bi !== 'all' ? ' · ' + esc(biLabel(billView.bi)) : ''}</div>` +
+      (list.length ? `<div class="tiles">${list.slice(0, 120).map(b => billCard(b)).join('')}</div>` +
+        (list.length > 120 ? `<div class="count">Showing the first 120 · type in the box at the top to narrow the list</div>` : '')
+      : `<div class="bubble"><b>No bills here with these choices.</b>Try another biennium, chamber or stage above.</div>`);
+    return;
+  }
+  const hits = sortBills(filterBills(searchBills(q)), true);
+  view.innerHTML = bpBarHTML() + billBarHTML(true) + `<div class="count">${hits.length.toLocaleString()} result${hits.length===1?'':'s'}</div>`
+    + (hits.length ? `<div class="tiles">${hits.slice(0,120).map(b => billCard(b)).join('')}</div>`
+                   : `<div class="bubble"><b>Nothing matched “${esc(q)}”.</b>Try a bill number, a word from the title, or a sponsor.</div>`);
+}
+
+// Bill numbers arrive in many shapes — "hb 2596", "HB2596", "2596".
+// Normalizing both sides makes all of them work.
+function searchBills(q){
+  const norm = s => String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  const nq = norm(q), words = q.toLowerCase().split(/\s+/).filter(Boolean);
+  const scored = [];
+  for (const b of billIndex){
+    const nn = norm(b.n);
+    let score = 0;
+    if (nn === nq) score = 100;
+    else if (nq && nn.includes(nq)) score = 60;
+    else {
+      const hay = `${b.t || ''} ${b.l || ''} ${(b.sp || []).join(' ')}`.toLowerCase();
+      if (words.every(w => hay.includes(w))) score = 20;
+    }
+    if (score) scored.push([score, b]);
+  }
+  return scored.sort((a, b) => b[0] - a[0]).map(x => x[1]);
+}
+
+// ── members ─────────────────────────────────────────────────────────
+// 224,756 per-member votes and the coalition analytics existed as files nothing
+// could reach. These two views are the whole point of having parsed the journals.
+let memberFilter = '';
+// The Members tab: everyone with a seat in the chosen biennium (the roster files), with
+// their voting record from the analytics where there is one. The bar at the top picks
+// biennium (latest by default), chamber, party, committee and the sort.
+const memberView = {bi: null, chamber: 'all', party: 'all', cmt: 'all', sort: 'name', former: 'no'};
+const lastName = n => { const w = String(n || '').trim().split(/\s+/); return (w[w.length - 1] || '') + ' ' + w[0]; };
+// One compact chip per choice: the label and a drop-down, so a whole bar is one line on
+// a desktop and two on a phone (it was four rows of buttons until 2026-10-01).
+function fbarGroup(label, attr, options, current){
+  return `<label class="fsel"><span>${label}</span><select data-fv="${attr}">${options.map(([v, l]) =>
+    `<option value="${esc(v)}" ${String(v) === String(current) ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select></label>`;
+}
+function renderMembers(){
+  const bienniums = [...new Set(legsAll.map(l => l.biennium))].sort().reverse();
+  const bi = bienniums.includes(memberView.bi) ? memberView.bi : (bienniums[0] || curBi);
+  memberView.bi = bi;
+  // Committee roles for THIS biennium (personInfo only knows the latest one).
+  const roleByKpid = {}, sitsByKpid = {};
+  const cmtsHere = cmtsAll.filter(c => c.biennium === bi);
+  for (const c of cmtsHere) for (const m of roster(c)){
+    (sitsByKpid[m.kpid] ||= []).push(c);
+    if (m.role !== 'member' && (!roleByKpid[m.kpid] || m.role === 'chair'))
+      roleByKpid[m.kpid] = (m.role === 'chair' ? 'Chair of ' : 'Vice chair of ') + (c.title || c.display_name || '');
+  }
+  const leadByKpid = {};
+  for (const l of leadsAll) if (l.biennium === bi && l.title) leadByKpid[l.member_kpid] = l.title;
+  const statsOf = {};
+  for (const m of (members || [])) if (m.biennium === bi) statsOf[String(m.person_id)] = m;
+
+  // One row per person: an Active seat beats an inactive one.
+  const seen = {};
+  for (const l of legsAll){
+    if (l.biennium !== bi) continue;
+    const k = String(l.person_id);
+    if (!seen[k] || (l.status === 'Active' && seen[k].status !== 'Active')) seen[k] = l;
+  }
+  let rows = Object.values(seen).map(l => ({
+    l, pid: String(l.person_id), name: l.full_name || '', chamber: cap(l.chamber), party: l.party || '',
+    district: l.district || '', role: leadByKpid[l.kpid] || roleByKpid[l.kpid] || '',
+    sits: sitsByKpid[l.kpid] || [], stats: statsOf[String(l.person_id)],
+  }));
+  // Current seats only, unless asked: a biennium's roster also lists everyone who
+  // resigned or was replaced (471 rows for 165 seats in 2025-26).
+  if (memberView.former !== 'yes') rows = rows.filter(r => !r.l.status || r.l.status === 'Active');
+  if (memberView.chamber !== 'all') rows = rows.filter(r => r.chamber.toLowerCase() === memberView.chamber);
+  if (memberView.party !== 'all') rows = rows.filter(r => r.party.toLowerCase().startsWith(memberView.party));
+  if (memberView.cmt !== 'all') rows = rows.filter(r => r.sits.some(c => c.kpid === memberView.cmt));
+  if (memberFilter) rows = rows.filter(r => r.name.toLowerCase().includes(memberFilter));
+  rows.sort(memberView.sort === 'district'
+    ? (a, b) => a.chamber.localeCompare(b.chamber) || (parseInt(a.district, 10) || 999) - (parseInt(b.district, 10) || 999) || lastName(a.name).localeCompare(lastName(b.name))
+    : (a, b) => lastName(a.name).localeCompare(lastName(b.name)));
+
+  const cmtOptions = cmtsHere
+    .filter(c => memberView.chamber === 'all' || String(c.chamber).toLowerCase() === memberView.chamber || c.chamber === 'Both')
+    .sort((a, b) => cmName(a).localeCompare(cmName(b)));
+  const initials = n => String(n || '').split(/\s+/).filter(Boolean).filter((w, i, arr) => i === 0 || i === arr.length - 1).map(w => w[0]).join('').toUpperCase();
+  const ptyLetter = p => /^r/i.test(p) ? 'R' : /^d/i.test(p) ? 'D' : '';
+  const bar = `<div class="fbar">
+    ${fbarGroup('Biennium', 'mv-bi', bienniums.map(b => [b, biLabel(b)]), bi)}
+    ${fbarGroup('Chamber', 'mv-chamber', [['all', 'Both'], ['house', 'House'], ['senate', 'Senate']], memberView.chamber)}
+    ${fbarGroup('Party', 'mv-party', [['all', 'All'], ['republican', 'Republican'], ['democrat', 'Democrat']], memberView.party)}
+    ${fbarGroup('Committee', 'mv-cmt', [['all', 'All committees'], ...cmtOptions.map(c => [c.kpid, cmName(c)])], memberView.cmt)}
+    ${fbarGroup('Sort', 'mv-sort', [['name', 'Name'], ['district', 'District']], memberView.sort)}
+    ${fbarGroup('Former members', 'mv-former', [['no', 'Hide'], ['yes', 'Show']], memberView.former)}
+  </div>`;
+  view.innerHTML = bpBarHTML() + bar +
+    `<div class="count">${rows.length} member${rows.length === 1 ? '' : 's'} · ${esc(biLabel(bi))}${
+      memberView.chamber !== 'all' ? ' · ' + cap(memberView.chamber) : ''}</div><div class="tiles">` +
+    rows.map(r => {
+      const s = r.stats;
+      const now = r.sits.map(c => [c, meetingNow(c.kpid)]).find(x => x[1]);
+      const line2 = [r.district ? `District ${esc(r.district)}` : '',
+        s ? `${s.roll_calls} roll calls` : 'No roll calls yet',
+        s && s.party_unity_pct != null ? `Party unity ${s.party_unity_pct}%` : ''].filter(Boolean).join(' · ');
+      return `
+      <div class="card row mtile" data-member="${esc(r.pid)}" role="button" tabindex="0" aria-label="Open ${esc(r.name)}">
+        <span class="ico txt ${ptyLetter(r.party)}">${esc(initials(r.name))}</span>
+        <div class="grow">
+          <div class="mname">${nameChip(r.name, r.pid, ptyLetter(r.party))}${r.l.status && r.l.status !== 'Active' ? ' <span class="pill">Inactive</span>' : ''}</div>
+          <div class="mline"><span class="pty ${ptyLetter(r.party)}">${esc(ptyLetter(r.party) || '?')}</span> ${esc(r.party || 'No party')} · ${esc(r.chamber)} · ${esc(r.role || 'Member')}</div>
+          <div class="mline meta">${line2}</div>
+          ${now ? nowBox(now[0], now[1]) : ''}
+        </div>
+      </div>`; }).join('') + `</div>`;
+}
+
+function openMember(pid){
+  go('#/member/' + encodeURIComponent(pid));
+  // Two sources: the analytics (voting record, allies) know members with 20+ roll
+  // calls; the roster files know everyone this biennium. Either is enough to open.
+  const m = (members || []).find(x => String(x.person_id) === String(pid));
+  const pi = personInfo[String(pid)];
+  if (!m && !pi) return;
+  const name = (m && m.name) || (pi && pi.name) || String(pid);
+  const party = (m && m.party) || (pi && (pi.party === 'R' ? 'Republican' : pi.party === 'D' ? 'Democrat' : '')) || '';
+  const chamber = cap((m && m.chamber) || (pi && pi.chamber) || '');
+  const district = (m && m.district) || (pi && pi.district) || '';
+  const bienn = (m && m.biennium) || '';
+  const role = roleOf[String(pid)] || {};
+  const scope = m ? `${m.biennium}_${m.chamber}` : '';
+  const rel = m ? (((allies || {})[scope] || {})[String(pid)]) : null;
+  const nameOf = id => ((members || []).find(x =>
+        String(x.person_id) === String(id) && x.biennium === bienn) || {}).name
+        || (personInfo[String(id)] || {}).name || id;
+  const right = v => `<td style="text-align:right">${v}</td>`;
+
+  setDno(name);
+  document.getElementById('dtitle').innerHTML =
+    esc([party, chamber, district ? `District ${district}` : '', bienn ? biLabel(bienn) : ''].filter(Boolean).join(' · '))
+    + (role.title ? ` · <span class="pill">${esc(role.title)}</span>` : '');
+  document.getElementById('dbody').innerHTML = `
+    ${committeesHTML(pid)}
+    ${m ? `<h2>Voting record</h2>
+    <table><tbody>
+      <tr><td>Roll calls</td>${right(`<b>${m.roll_calls}</b>`)}</tr>
+      <tr><td>Voted yea</td>${right(m.yea)}</tr>
+      <tr><td>Voted nay</td>${right(m.nay)}</tr>
+      <tr><td>Absent</td>${right(m.absent || 0)}</tr>
+      <tr><td>Attendance</td>${right((m.attendance_pct ?? '–') + '%')}</tr>
+      <tr><td>Party unity</td>${right(`<b>${m.party_unity_pct ?? '–'}%</b>
+        <span class="meta">of ${m.party_unity_votes || 0}</span>`)}</tr>
+    </tbody></table>` : `<div class="meta" style="padding:6px 0">No roll-call record in the analytics for this member yet.</div>`}
+    ${rel ? `
+      <h2>Votes most often with</h2>
+      <table><tbody>${rel.allies.map(a => `<tr><td>${esc(nameOf(a.person_id))}</td>
+        ${right(`${a.agree_pct}% <span class="meta">${a.shared}</span>`)}</tr>`).join('')}
+      </tbody></table>
+      <h2>Votes most often against</h2>
+      <table><tbody>${rel.opponents.map(a => `<tr><td>${esc(nameOf(a.person_id))}</td>
+        ${right(`${a.agree_pct}% <span class="meta">${a.shared}</span>`)}</tr>`).join('')}
+      </tbody></table>
+      <div class="meta" style="margin-top:14px">Agreement is measured over roll calls where
+        both members took a position, minimum 25 shared votes.</div>`
+      : m ? `<div class="empty">Not enough shared votes to compare this member.</div>` : ''}
+    <div style="margin-top:16px"><a class="btn" href="leadership.html#member/${encodeURIComponent(pid)}">Full legislator page &rarr;</a>
+      <div class="meta" style="margin-top:6px">Every roll call, sponsored bills and positions, on the leadership page (same access code).</div></div>`;
+  mountAnnot('member', {id: String(pid), name, biennium: bienn}, name);
+  if (!dlg.open) dlg.showModal();
+}
+// Leadership title, chairs, vice chairs, and every committee they sit on.
+function committeesHTML(pid){
+  const pi = personInfo[String(pid)];
+  if (!pi) return '';
+  const chips = list => list.map(c => cmChip(cmName(c), {kpid: c.kpid})).join(' ');
+  const chairs = pi.chairs.filter(x => x.role === 'chair').map(x => x.c);
+  const vices  = pi.chairs.filter(x => x.role === 'vice_chair').map(x => x.c);
+  return `<h2>Committees</h2>
+    ${row('Leadership', esc(pi.leads.join(' · ')))}
+    ${row('Chair of', chips(chairs))}${row('Vice chair of', chips(vices))}
+    ${row('Sits on', chips(pi.sits) || '<span class="meta">No committee</span>')}`;
+}
+
+// ── organizations ───────────────────────────────────────────────────
+// Two different kinds of claim live here and are deliberately NOT merged:
+//   APPEARANCES — fact. This organization testified on this bill with this stance.
+//   POSITIONS   — the office's judgement about where they stand. Set in Retool.
+// Testimony is evidence toward a position; it is not a position.
+let orgFilter = '';
+function renderOrgs(){
+  // Default to stakeholders. Unfiltered, this list is topped by the Office of the
+  // Revisor of Statutes under several spellings, then "State of Kansas", then the House
+  // — the people who DRAFT the bills and the staff who explain them. They attend
+  // constantly, which is not the same thing as lobbying, and letting them outrank the
+  // Kansas Chamber makes the view answer a question nobody asked.
+  const GROUPS = {
+    stakeholders: {label: 'Stakeholders', test: o => o.t !== 'legislative_staff'},
+    government:   {label: 'Government',   test: o => ['state_agency','local_government'].includes(o.t)},
+    staff:        {label: 'Legislative staff', test: o => o.t === 'legislative_staff'},
+    all:          {label: 'All',          test: () => true},
+  };
+  const g = GROUPS[orgGroup] ? orgGroup : 'stakeholders';
+  const matching = orgIndex.filter(o =>
+    GROUPS[g].test(o) && (!orgFilter || (o.n||'').toLowerCase().includes(orgFilter)));
+  const rows = matching.slice(0, 200);
+  const TYPE_LABEL = {
+    legislative_staff: 'Legislative staff', state_agency: 'State agency',
+    local_government: 'Local government', citizen: 'Individual',
+  };
+  view.innerHTML = bpBarHTML() +
+    `<div class="subnav">${Object.entries(GROUPS).map(([k,v]) =>
+      `<button data-orggroup="${k}" class="${k===g?'on':''}">${v.label}</button>`).join('')}</div>` +
+    `<div class="count">${matching.length.toLocaleString()} of ${
+      orgIndex.length.toLocaleString()} organizations${
+      rows.length < matching.length ? ` · showing the ${rows.length} most active` : ''}</div>` +
+    (rows.length ? `<div class="tiles">` + rows.map(o => `
+      <div class="card row" data-org="${esc(o.id)}" role="button" tabindex="0"
+           aria-label="Open ${esc(o.n)}">
+        <span class="ico" style="--tint:#2f6b46"><svg class="i"><use href="#i-building"/></svg></span>
+        <div class="grow">
+          <strong>${esc(o.n)}</strong>
+          <div class="meta"><span>${o.c} hearing appearance${o.c===1?'':'s'}</span>
+            ${o.t?`<span class="pill">${esc(TYPE_LABEL[o.t] || cap(o.t))}</span>`:''}</div>
+        </div>
+      </div>`).join('') + `</div>`
+      : `<div class="bubble"><b>No organizations match.</b>Try fewer letters, or another group above.</div>`);
+}
+
+function openOrg(oid){
+  go('#/org/' + encodeURIComponent(oid));
+  const o = orgIndex.find(x => String(x.id) === String(oid));
+  const app = orgAppearances[oid] || [];
+  if (!o) return;
+  const stance = c => app.filter(a => a.s === c).length;
+  const byBill = {};
+  for (const a of app) (byBill[`${a.y}|${a.b}`] ||= []).push(a);
+  const bills = Object.entries(byBill)
+    .sort((a,b) => b[1].length - a[1].length).slice(0, 60);
+
+  setDno(o.n || '');
+  document.getElementById('dtitle').textContent =
+    `${o.c} hearing appearance${o.c===1?'':'s'} across ${Object.keys(byBill).length} bills`;
+  document.getElementById('dbody').innerHTML = `
+    <h2>Positions</h2>
+    <div class="meta" style="padding:4px 0 10px">
+      No positions recorded for this organization yet. Positions are the office's own
+      assessment and are set in Retool — the hearing record below is evidence toward
+      one, not a substitute for it.</div>
+
+    <h2>Hearing record</h2>
+    <div class="meta" style="margin-bottom:8px">
+      <span class="pill ok">${stance('proponent')} Proponent</span>
+      <span class="pill bad">${stance('opponent')} Opponent</span>
+      <span class="pill">${stance('neutral')} Neutral</span>
+      ${app.filter(a=>!a.s).length?`<span class="pill">${app.filter(a=>!a.s).length} Unstated</span>`:''}
+    </div>
+    <table><tbody>${bills.map(([k, rows]) => {
+      const [y, b] = k.split('|');
+      const s = rows.find(r => r.s)?.s;
+      return `<tr data-open="${esc(k)}" style="cursor:pointer">
+        <td>${billNo(b, y)}</td>
+        <td>${s?`<span class="pill ${s==='proponent'?'ok':s==='opponent'?'bad':''}">${esc(cap(s))}</span>`:'<span class="meta">Stance not stated</span>'}</td>
+        <td class="meta">${esc(rows[0].d||'')}${rows.length>1?` · ${rows.length} appearances`:''}</td>
+      </tr>`;
+    }).join('')}</tbody></table>
+    ${Object.keys(byBill).length > 60 ? `<div class="meta" style="margin-top:8px">
+      showing 60 of ${Object.keys(byBill).length} bills</div>` : ''}`;
+  mountAnnot('org', {id: String(o.id), name: o.n || ''}, o.n || String(oid));
+  if (!dlg.open) dlg.showModal();
+}
+
+// ── hearings ────────────────────────────────────────────────────────
+function hearingsHTML(){
+  // Groups come from TESTIMONY, not from the hearings table alone — a third of all
+  // testimony belongs to budget hearings about agencies rather than bills, and this
+  // grouping is the only way to reach it.
+  const groups = new Map();
+  for (const t of testimonyAll){
+    if (!t.c || !t.d) continue;
+    const k = `${t.c}|${t.d}`;
+    if (!groups.has(k)) groups.set(k, {c: t.c, d: t.d, rows: [], bills: new Set()});
+    const g = groups.get(k);
+    g.rows.push(t);
+    if (t.b) g.bills.add(t.b);
+  }
+  let list = [...groups.values()].sort((x, y) => (y.d || '').localeCompare(x.d || ''));
+  if (hearingFilter){
+    const f = hearingFilter;
+    list = list.filter(g => cmtLabel(g.c).toLowerCase().includes(f)
+      || g.c.toLowerCase().includes(f)
+      || [...g.bills].some(bn => bn.toLowerCase().includes(f)));
+  }
+  const shown = list.slice(0, 120);
+  return `<div class="count">${list.length.toLocaleString()} hearings with testimony on record${
+      shown.length < list.length ? ` · showing the ${shown.length} most recent` : ''}</div>` +
+    (shown.length ? `<div class="tiles">` + shown.map(g => {
+      const dt = new Date(String(g.d) + 'T12:00:00'), okd = !isNaN(dt);
+      return `
+      <div class="card row" data-hearing="${esc(g.c)}|${esc(g.d)}" role="button" tabindex="0"
+           aria-label="Open hearing">
+        <span class="ico cal" style="--tint:#6a4c93"><b>${okd ? dt.getDate() : '?'}</b><small>${okd ? esc(dt.toLocaleDateString([], {month: 'short'})) : ''}</small></span>
+        <div class="grow">
+          <strong>${cmChip(cmtLabel(g.c), {kpid: g.c})}</strong>
+          <div class="meta"><span>${esc(g.d)}</span>
+            <span>${g.rows.length} testimony filing${g.rows.length===1?'':'s'}</span>
+            ${g.bills.size ? `<span>${[...g.bills].slice(0,4).join(', ')}${g.bills.size>4?' +'+(g.bills.size-4):''}</span>`
+                           : `<span class="pill">Budget / agency</span>`}</div>
+        </div>
+      </div>`; }).join('') + `</div>`
+      : `<div class="bubble"><b>No hearings match.</b>Try a committee name or a bill number.</div>`);
+}
+
+function openHearing(key){
+  go('#/hearing/' + key.split('|').map(encodeURIComponent).join('/'));
+  const [c, d] = key.split('|');
+  const rows = testimonyAll.filter(t => t.c === c && t.d === d);
+  setDno(d);
+  document.getElementById('dtitle').innerHTML = cmChip(cmtLabel(c), {kpid: c});
+  const stance = v => v==='proponent' ? 'ok' : v==='opponent' ? 'bad' : '';
+  const bills = [...new Set(rows.map(t => t.b).filter(Boolean))];
+  document.getElementById('dbody').innerHTML = `
+    ${bills.length ? `<div class="meta" style="margin-bottom:10px">Bills heard:
+      ${bills.map(bn => `<a href="#/search?q=${encodeURIComponent(bn)}"
+        style="color:var(--accent);text-decoration:none">${esc(bn)}</a>`).join(' · ')}</div>` : ''}
+    <div class="meta" style="margin-bottom:8px">A filing records that this person
+      appeared with this stance at THIS hearing — it is not an ongoing position.</div>
+    <table><tbody>${rows.map(t => `
+      <tr><td>${esc(t.p || '')}</td><td>${esc(t.o || '')}</td>
+        <td>${t.s ? `<span class="pill ${stance(t.s)}">${esc(cap(t.s))}</span>` : ''}</td>
+        <td style="text-align:right">${t.a ? `<a href="${esc(DOCBASE + '/committees/testimony/pdf/?apn=' + t.a)}"
+          target="_blank" rel="noopener noreferrer">PDF</a>` : ''}</td></tr>`).join('')}
+    </tbody></table>`;
+  mountAnnot('hearing', {committee: c, date: d}, cmtLabel(c) + ' · ' + d);
+  if (!dlg.open) dlg.showModal();
+}
+
+// ── analysis ────────────────────────────────────────────────────────
+function renderStats(){
+  const L = lifecycle || {};
+  const o = L.outcomes || {};
+  const total = Object.values(o).reduce((a,b)=>a+b,0);
+  const bar = (n) => `<div style="height:6px;border-radius:3px;background:var(--accent);
+      width:${Math.max(2, Math.round(100*n/(total||1)))}%"></div>`;
+  view.innerHTML = `
+    <h2>What happens to bills</h2>
+    <div class="card">
+      <table><tbody>${Object.entries(o).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`
+        <tr><td>${esc(k)}</td><td style="width:45%">${bar(v)}</td>
+        <td style="text-align:right">${v.toLocaleString()}</td></tr>`).join('')}
+      </tbody></table>
+      <div class="meta" style="margin-top:8px">median ${L.median_days_to_disposition} days
+        from introduction to final action · mean ${L.mean_days}</div>
+    </div>
+
+    <h2>Committees by kill rate</h2>
+    <div class="card">
+      <table><tbody>${(L.committees||[]).slice(0,12).map(c=>`
+        <tr><td>${esc(c.committee)}</td>
+        <td style="text-align:right"><b>${c.kill_pct}%</b>
+          <span class="meta">${c.died}/${c.bills_seen}</span></td></tr>`).join('')}
+      </tbody></table>
+      <div class="meta" style="margin-top:8px">${esc(L.caveat||'')}</div>
+    </div>
+
+    <h2>Sponsors by pass rate</h2>
+    <div class="card">
+      <table><tbody>${(L.sponsors||[]).slice(0,12).map(s=>`
+        <tr><td>${esc(s.name||'?')}</td>
+        <td style="text-align:right"><b>${s.pass_pct}%</b>
+          <span class="meta">${s.passed}/${s.bills}</span></td></tr>`).join('')}
+      </tbody></table>
+      <div class="meta" style="margin-top:8px">minimum 10 sponsored bills</div>
+    </div>`;
+}
+
+// ── detail ──────────────────────────────────────────────────────────
+const dlg = document.getElementById('detail');
+document.getElementById('dclose').onclick = () => closeDetail();
+// A bill row inside the organization dialog opens that bill.
+document.getElementById('dbody').onclick = e => {
+  if (e.target.closest('select, input, textarea')) return;   // a control in a row is not a tap on the row
+  if (chipClick(e)) return;
+  if (e.target.closest('[data-cal]')) return calClick(e);
+  if (e.target.closest('[data-go]')) return goClick(e);
+  if (e.target.closest('[data-pf]')) return pfClick(e);
+  if (e.target.closest('[data-annot]')) return annotClick(e);
+  const o = e.target.closest('[data-open]');
+  if (o) openBill(o.dataset.open);
+};
+document.getElementById('dbody').addEventListener('keydown', annotKey);
+
+// ── Plan for Floor (schema/23_access_rules.sql) ─────────────────────
+// Leadership's button on a bill: the chair and vice chair of its committee each get a
+// "floor brief needed" task in their To Do, the bill goes on their watchlist and on
+// leadership's, and the bill is marked floor-ready. Drawn only for leadership and only
+// on a bill of the current biennium; api_call() refuses anyone else whatever the page
+// shows. When the database cannot tell which committee has the bill it asks.
+function planFloorHTML(bi, bn){
+  if (!(me && me.is_leadership) || bi !== me.biennium) return '';
+  return `<div class="planfloor" id="planfloor" data-bn="${esc(bn)}">
+    <button class="btn primary" data-pf="go">Plan for Floor</button>
+    <span class="meta" style="flex:1 1 220px">Asks the committee's chair and vice chair for a floor brief, and puts the bill on their watchlist and yours.</span>
+    <div id="pfmsg" class="meta" style="display:block;flex-basis:100%"></div></div>`;
+}
+async function pfClick(e){
+  const box = document.getElementById('planfloor'), msg = document.getElementById('pfmsg');
+  const bn = box.dataset.bn, pick = box.querySelector('select');
+  msg.textContent = 'Sending…';
+  const r = await apiCall('plan_for_floor', {bill_no: bn, committee_kpid: pick ? pick.value : ''});
+  if (r && r.need_committee){
+    const chamber = /^S/i.test(bn) ? 'Senate' : 'House';
+    const opts = cmtList.filter(c => c.status === 'Active').sort((x, y) => (y.chamber === chamber) - (x.chamber === chamber) || cmName(x).localeCompare(cmName(y)));
+    msg.innerHTML = `The record does not say which committee has this bill. Choose it, then press Plan for Floor again:
+      <select style="margin-top:6px;max-width:100%">${opts.map(c => `<option value="${esc(c.kpid)}">${esc(cmName(c))}</option>`).join('')}</select>`;
+    return;
+  }
+  if (!r || !r.ok){ msg.textContent = 'Not sent: ' + ((r && r.error) === 'offline' ? 'no connection' : ((r && r.error) || 'try again')); return; }
+  const d = r.data;
+  msg.textContent = d.alerted.length
+    ? `Asked ${d.committee}: ${d.alerted.join(', ')}. It is in their To Do and on their watchlist and yours.`
+    : `Nobody was alerted: no chair or vice chair of ${d.committee} has an access code linked to that committee yet. The bill is on your watchlist and marked floor-ready.`;
+  serverWatch.add(`${me.biennium}|${d.bill_no}`);
+  updateWatchCount();
+  ensureMe(true);
+  // Plan for Floor is the decision "bring to the floor": show it as decided.
+  decPromise = null;
+  ensureDecisions().then(() => paintDecBox(me.biennium, d.bill_no));
+}
+
+async function openBill(k){
+  const [b, n] = k.split('|');
+  go('#/bill/' + encodeURIComponent(b) + '/' + encodeURIComponent(n));
+  setDno(n, true);
+  document.getElementById('dtitle').textContent = '';
+  document.getElementById('dbody').innerHTML = '<div class="empty">Loading…</div>';
+  if (!dlg.open) dlg.showModal();
+  let d;
+  try { d = await getJSON(`bill/${encodeURIComponent(b)}/${encodeURIComponent(n)}.json`); }
+  catch { document.getElementById('dbody').innerHTML = '<div class="empty">Detail unavailable for this bill.</div>'; return; }
+
+  markSeen(k);
+  renderAside();
+  document.getElementById('dtitle').textContent = d.bill.short_title || d.bill.long_title || '';
+  const pos = d.positions || [];
+  // esc() even here: tally values come from CSV/API text and are never validated
+  // as numeric anywhere in the pipeline, so they are untrusted like everything else.
+  const tally = c => `${esc(c.tally_yea ?? '–')}–${esc(c.tally_nay ?? '–')}`;
+
+  document.getElementById('dbody').innerHTML = `
+    ${journeyHTML(d.journey)}
+    ${planFloorHTML(b, n)}
+    <div id="decbox" data-bn="${esc(n)}"></div>
+    <div class="meta" style="margin-bottom:12px">
+      <span class="pill">${esc(d.bill.status || '')}</span>
+      ${billView.bi === 'all' ? `<span class="pill">${esc(biLabel(d.bill.biennium))}</span>` : ''}
+      ${d.sponsors?.length ? `<span>${d.sponsors.map(s => sponsorHTML(s.sponsor_name, s.person_id)).join(' ')}</span>` : ''}
+    </div>
+    ${d.votes?.length ? `<h2>Votes</h2><table><tbody>${d.votes.map(v=>`
+      <tr><td>${esc(v.chamber||'')}</td><td>${esc(v.motion||'')}</td>
+      <td style="text-align:right"><b>${tally(v)}</b></td></tr>`).join('')}</tbody></table>` : ''}
+    ${d.roll_calls?.length ? `<h2>Who voted how (${d.roll_calls.length} roll call${d.roll_calls.length===1?'':'s'})</h2>
+      ${d.roll_calls.map((rc,i)=>{
+        // Each name in its party's colour, with the letter too: colour is never the
+        // only cue (`y` is the voter's party, published since 2026-09-30).
+        const nm = x => nameChip(x.n + (x.y === 'R' || x.y === 'D' ? ` (${x.y})` : ''), x.p, x.y);
+        const by = v => rc.votes.filter(x=>x.v===v).map(nm).join(', ');
+        const flag = rc.parse_confidence==='high' ? '' :
+          `<span class="pill warn">Parsed: ${esc(cap(rc.parse_confidence))} confidence</span>`;
+        return `<details class="card" ${i===0?'open':''}>
+          <summary><b>${esc(rc.chamber||'')} ${esc(rc.journal_date||'')}</b>
+            &nbsp;<span class="pill ok">${rc.yeas_count} yea</span>
+            <span class="pill bad">${rc.nays_count} nay</span> ${flag}</summary>
+          <div class="meta" style="margin:8px 0">${esc((rc.motion_text||'').slice(-190))}</div>
+          ${rc.votes.some(x => x.y) ? seatMapHTML(rc.votes) : ''}
+          <div style="font-size:13px"><b>Yea:</b> ${by('yea')||'—'}</div>
+          <div style="font-size:13px;margin-top:6px"><b>Nay:</b> ${by('nay')||'—'}</div>
+          ${by('absent_not_voting') ? `<div style="font-size:13px;margin-top:6px">
+            <b>Absent / not voting:</b> ${by('absent_not_voting')}</div>` : ''}
+        </details>`;
+      }).join('')}` : ''}
+    <h2>Office positions${pos.length?` (${pos.length})`:''}</h2>
+    ${pos.length ? `<table><tbody>${
+      pos.slice(0,40).map(p=>`<tr><td>${esc(p.organization_name || '—')}</td>
+      <td><span class="pill ${p.position==='proponent'?'ok':p.position==='opponent'?'bad':''}">${esc(cap(p.position))}</span></td>
+      <td class="meta">${esc(p.stated_on||'')}</td></tr>`).join('')
+    }</tbody></table>`
+    : `<div class="meta" style="padding:6px 0">No positions recorded for this bill yet.
+        Positions are set by the office in Retool — testimony below shows who spoke and
+        how, which is a record of a hearing, not a stated position on the bill.</div>`}
+    ${(d.versions||[]).length ? `<h2>Versions (${d.versions.length})</h2>
+      <div class="meta" style="margin-bottom:6px">Latest first. The text of a bill
+        changes as it moves; these are the printings.</div>
+      <table><tbody>${d.versions.slice().reverse().map(v=>`
+        <tr><td>${esc(v.amended_status || v.version || '')}</td>
+        <td style="text-align:right;white-space:nowrap">${
+          v.document_url ? `<a href="${esc(DOCBASE + v.document_url)}" target="_blank"
+            rel="noopener noreferrer">PDF</a>` : '<span class="meta">no document</span>'
+        }</td></tr>`).join('')}</tbody></table>` : ''}
+    ${(d.fiscal_notes||[]).length || (d.supp_notes||[]).length ? `
+      <h2>Notes</h2>
+      <div class="meta" style="margin-bottom:6px">The fiscal note is the official
+        "what does this cost" estimate; the supplemental note is staff's plain-language
+        summary of the bill.</div>
+      <table><tbody>
+      ${(d.fiscal_notes||[]).map(f=>`<tr><td>Fiscal note</td>
+        <td style="text-align:right"><a href="${esc(DOCBASE + f.document_url)}"
+          target="_blank" rel="noopener noreferrer">PDF</a></td></tr>`).join('')}
+      ${(d.supp_notes||[]).map(f=>`<tr><td>Supplemental note</td>
+        <td style="text-align:right"><a href="${esc(DOCBASE + f.document_url)}"
+          target="_blank" rel="noopener noreferrer">PDF</a></td></tr>`).join('')}
+      </tbody></table>` : ''}
+    <h2>History (${d.history?.length || 0})</h2>
+    <ul class="hist">${(d.history||[]).slice().reverse().slice(0,40).map(h=>`
+      <li><time>${h.occurred_datetime ? new Date(h.occurred_datetime).toLocaleDateString() : ''}</time>
+      ${esc(h.action_label || h.status || '')}</li>`).join('')}</ul>
+    ${d.testimony?.length ? `<h2>Testimony (${d.testimony.length})</h2>
+      <div class="meta" style="margin-bottom:6px">Every filing is the written testimony as submitted; PDF opens it on the Legislature's site.</div>
+      <table><tbody>${
+      d.testimony.slice(0, 60).map(t => `<tr><td>${esc(t.presenter||'')}</td>
+      <td>${esc(t.organization||'')}</td><td>${t.position ? `<span class="pill ${t.position==='proponent'?'ok':t.position==='opponent'?'bad':''}">${esc(cap(t.position))}</span>` : ''}</td>
+      <td style="text-align:right;white-space:nowrap">${t.document_url ? `<a href="${esc(DOCBASE + t.document_url)}" target="_blank" rel="noopener noreferrer">PDF</a>`
+        : t.apn ? `<a href="${esc(DOCBASE + '/committees/testimony/pdf/?apn=' + t.apn)}" target="_blank" rel="noopener noreferrer">PDF</a>` : ''}</td></tr>`).join('')
+    }</tbody></table>${d.testimony.length > 60 ? `<div class="meta" style="margin-top:6px">Showing 60 of ${d.testimony.length}; the hearing itself lists them all.</div>` : ''}` : ''}`;
+  mountAnnot('bill', {biennium: b, bill_no: n}, n + (d.bill.short_title ? ' · ' + d.bill.short_title.slice(0, 80) : ''));
+  // This office's decision on the bill (leadership only; one API run a visit).
+  paintDecBox(b, n);
+  if (me && me.is_leadership && b === me.biennium) ensureDecisions().then(() => paintDecBox(b, n));
+}
+
+// ── General Orders: the floor list, typed in the night before ────────
+// (schema/22_general_orders.sql.) Nothing else on the site says what is COMING to the
+// floor: the feed is what has happened. The Activity screen has a switch - Recent
+// activity | General Orders - and the second asks api_call() for the lists (live, so a
+// list shows the moment it is saved; one run when the switch is first used). Anyone
+// with a code reads it; leadership, leadership staff and the office's Tier 1 codes get
+// the "Enter General Orders" button, and the database checks the save again.
+let feedMode = 'recent';
+const gord = {data: null, loading: false, error: ''};
+async function loadGO(){
+  gord.loading = true; gord.error = '';
+  const r = await apiCall('general_orders', {});
+  gord.loading = false;
+  if (r && r.ok) gord.data = r.data;
+  else gord.error = !access ? 'General Orders need an access code.'
+    : (r && r.error === 'offline') ? 'Could not reach the list. Check your connection.'
+    : 'Could not load General Orders' + (r && r.error ? ': ' + r.error : '.');
+  if (currentTab === 'feed') render('feed');
+  renderAside();
+}
+// The switch on the Activity screen and on the banner. On the banner, Hearings opens
+// the main Activity screen (a list of hearings needs the room).
+const feedToggleHTML = (mode, where) => `<div class="subnav" style="margin-bottom:10px">
+    <button data-feedmode="recent" data-where="${where}" class="${mode === 'recent' ? 'on' : ''}">Recent activity</button>
+    <button data-feedmode="go" data-where="${where}" class="${mode === 'go' ? 'on' : ''}">General Orders</button>
+    <button data-feedmode="hearings" data-where="${where}" class="${mode === 'hearings' ? 'on' : ''}">Hearings</button></div>`;
+// The office enters each floor day's list the evening before. If nothing has been
+// entered since the last business day, say so plainly rather than show an old list as
+// if it were current.
+function goStaleHTML(){
+  const d = gord.data;
+  if (!d) return '';
+  const lastBiz = new Date();
+  do { lastBiz.setDate(lastBiz.getDate() - 1); } while (lastBiz.getDay() === 0 || lastBiz.getDay() === 6);
+  lastBiz.setHours(0, 0, 0, 0);
+  const last = d.last_entered_at ? new Date(d.last_entered_at) : null;
+  if (last && last >= lastBiz) return '';
+  return `<div class="staleflag">${last ? 'General Orders have not been updated since ' + esc(last.toLocaleDateString([], {weekday: 'long', month: 'short', day: 'numeric'}))
+    : 'No General Orders have been entered yet'}. The office adds each floor day's list the evening before.</div>`;
+}
+function generalOrdersHTML(){
+  if (!gord.data && !gord.loading && !gord.error) loadGO();
+  if (!gord.data) return gord.error ? `<div class="bubble" style="margin-top:8px"><b>${esc(gord.error)}</b></div>`
+                                    : `<div class="tick">Loading General Orders…</div>`;
+  const days = gord.data.days || [], stale = goStaleHTML();
+  const enter = gord.data.can_edit
+    ? `<div class="slot-actions" style="margin:10px 0 14px"><button class="btn primary" data-go="new">Enter General Orders</button></div>` : '';
+  if (!days.length) return stale + `<div class="bubble" style="margin-top:8px"><b>No General Orders entered.</b>The list for a floor day is added the evening before.</div>
+    <div style="height:16px"></div>` + enter;
+  return stale + days.map(d => `<h2>${esc(d.chamber)} · ${esc(new Date(d.date + 'T12:00:00').toLocaleDateString([], {weekday: 'long', month: 'short', day: 'numeric'}))}
+      ${gord.data.can_edit ? `<button class="pill" data-go="edit" data-date="${esc(d.date)}" data-chamber="${esc(d.chamber)}" style="margin-left:auto">Edit</button>` : ''}</h2>` +
+    d.bills.map((b, i) => `<div class="tick${stageCls(b.stage)}"${stageAttr(b.stage)} data-open="${esc(gord.data.biennium + '|' + b.bill_no)}">
+      <b>${i + 1}. ${billNo(b.bill_no)}</b> ${stageChip(b.stage)}
+      <div>${esc(b.title || 'Not a bill in the current data')}</div></div>`).join('')).join('') + enter;
+}
+function openGOForm(date, chamber){
+  const cur = date ? ((gord.data && gord.data.days) || []).find(d => d.date === date && d.chamber === chamber) : null;
+  const tmr = new Date(); tmr.setDate(tmr.getDate() + 1);
+  setDno('General Orders');
+  document.getElementById('dtitle').textContent = cur ? 'Change the list for this day' : 'Enter the list the evening before';
+  annotCtx = null;
+  document.getElementById('dbody').innerHTML = `<div class="card calform" id="goform">
+    <div class="calrow"><label>Chamber<select data-f="chamber" ${cur ? 'disabled' : ''}>
+        <option ${chamber !== 'Senate' ? 'selected' : ''}>House</option><option ${chamber === 'Senate' ? 'selected' : ''}>Senate</option></select></label>
+      <label>Floor day<input type="date" data-f="date" value="${cur ? esc(cur.date) : ymd(tmr)}" ${cur ? 'disabled' : ''}></label></div>
+    <label>Bills, in the order they will be taken up
+      <textarea data-f="bills" rows="8" placeholder="HB2001
+SB10
+HCR5001" autocapitalize="characters" spellcheck="false">${cur ? esc(cur.bills.map(b => b.bill_no).join('\n')) : ''}</textarea></label>
+    <div class="meta" style="display:block;margin-top:4px">One bill to a line, or separated by commas.</div>
+    <div id="gomsg" class="meta" style="min-height:1.4em;display:block;margin-top:6px"></div>
+    <div class="calrow" style="justify-content:flex-end;align-items:center">
+      ${cur ? `<button class="pill" data-go="clear" type="button">Clear this day</button>` : ''}
+      <button class="pill" data-go="cancel" type="button">Cancel</button>
+      <button class="btn primary" data-go="save" type="button">Save</button></div></div>`;
+  ensureBillIndex().catch(() => {});
+  if (!dlg.open) dlg.showModal();
+}
+async function goClick(e){
+  const b = e.target.closest('[data-go]'), act = b.dataset.go;
+  if (act === 'new') return openGOForm();
+  if (act === 'edit') return openGOForm(b.dataset.date, b.dataset.chamber);
+  if (act === 'cancel') return closeDetail();
+  const form = document.getElementById('goform'), msg = document.getElementById('gomsg');
+  const f = k => form.querySelector(`[data-f="${k}"]`);
+  // "hb 2001, SB10" -> ["HB2001", "SB10"]: a space inside a number is closed up first.
+  const bills = act === 'clear' ? [] : f('bills').value.toUpperCase().replace(/([A-Z])\s+(\d)/g, '$1$2')
+    .split(/[\s,;]+/).map(x => x.trim()).filter(Boolean);
+  if (act === 'save' && !bills.length){ msg.textContent = 'List at least one bill.'; return; }
+  const unknown = billIndex && gord.data
+    ? bills.filter(x => !billIndex.some(bb => bb.b === gord.data.biennium && bb.n === x)) : [];
+  if (unknown.length){ msg.textContent = `Not a bill this biennium: ${unknown.join(', ')}. Check the number.`; return; }
+  msg.textContent = act === 'clear' ? 'Clearing…' : 'Saving…';
+  const r = await apiCall('general_orders_save', {chamber: f('chamber').value, date: f('date').value, bills});
+  if (!r.ok){ msg.textContent = 'Not saved: ' + (r.error === 'offline' ? 'no connection' : (r.error || 'try again')); return; }
+  await loadGO();
+  closeDetail();
+}
+
+// ── the committee calendar (schema/21_committee_calendar.sql) ───────
+// LIVE, not published: the page asks api_call() for a window of days and draws the
+// answer. Anyone with a code may read it; a committee's chair, vice chair or staff -
+// or leadership - may add a day, list the bills to be taken up and say what the
+// business is on each (testimony, amendments, pass it, kill it, discussion). `can_edit`
+// on each day and the `editable` list only decide which buttons are drawn: the
+// database checks every save again, and a page edited by its reader gets "not your
+// committee". One Retool run per month viewed, one per save - nothing polls.
+const cal = {month: null, data: null, loading: false, error: ''};
+const ymd = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const BUSINESS = [['testimony', 'Testimony', ''], ['amendments', 'Amendments', 'warn'],
+                  ['pass', 'Pass it', 'ok'], ['kill', 'Kill it', 'bad'], ['discussion', 'Discussion', '']];
+const busPill = b => { const x = BUSINESS.find(y => y[0] === b); return x ? `<span class="pill ${x[2]}">${x[1]}</span>` : ''; };
+// A day's committee sittings, from the month on screen or the three-month plan list.
+function calDaysOn(date){
+  const seen = new Set(), out = [];
+  for (const d of [...((cal.data && cal.data.days) || []), ...((cal.agenda && cal.agenda.days) || [])])
+    if (d.date === date && !seen.has(d.day_id)){ seen.add(d.day_id); out.push(d); }
+  return out;
+}
+let calMode = 'days';            // the calendar's own switch: days | plans | decisions
+
+// ── a leadership office's decisions (schema/24_decisions.sql) ───────
+// Chairman Plans used to be a screen of its own; since 2026-10-01 a plan IS a calendar
+// entry (the committee day, the bill, the business). A leadership office answers with
+// its own decision on the bill, in the office's words: Bring to Floor Now, Wait, Never
+// Bring to Floor, Kill. A decision is PRIVATE TO THE OFFICE THAT MADE IT: api_call()
+// returns it only to codes of that office - not to the chair or vice chair, not to
+// another leadership office - and the page draws the control and the Decisions list for
+// leadership only. Wait, Never Bring to Floor and Kill tell nobody anything. Bring to
+// Floor Now is the one that acts: like the Plan for Floor button, it asks the bill's
+// committee - chair and vice chair - for a floor brief (they get that request in their
+// To Do; they are still never sent the decision or its note).
+const DECISIONS = [['floor', 'Bring to Floor Now', 'ok'], ['wait', 'Wait', 'warn'],
+                   ['never', 'Never Bring to Floor', 'bad'], ['kill', 'Kill', 'bad']];
+function decPill(d){
+  const x = d && DECISIONS.find(y => y[0] === d.decision);
+  if (!x) return '';
+  const tip = [d.note, d.by ? 'by ' + d.by : '', d.at ? new Date(d.at).toLocaleDateString() : ''].filter(Boolean).join(' · ');
+  return `<span class="pill ${x[2]}" title="${esc(tip)}">Decision: ${x[1]}</span>`;
+}
+const decideSelect = (bn, cur) => `<select data-decide="${esc(bn)}" aria-label="Leadership decision on ${esc(bn)}">
+    <option value="none">No decision</option>${DECISIONS.map(([k, l]) =>
+      `<option value="${k}" ${cur === k ? 'selected' : ''}>${l}</option>`).join('')}</select>`;
+const dec = {list: null, by: new Map(), can: false, bi: '', loading: false, error: ''};
+let decPromise = null;
+async function loadDecisions(){
+  dec.loading = true;
+  const r = await apiCall('decisions', {});
+  dec.loading = false;
+  if (r && r.ok){
+    dec.list = r.data.decisions || []; dec.can = !!r.data.can_decide; dec.bi = r.data.biennium || '';
+    dec.by = new Map(dec.list.map(x => [x.bill_no, x])); dec.error = '';
+  } else dec.error = 'Could not load the decisions.';
+  if (currentTab === 'calendar' && calMode === 'decisions') renderCalendar();
+  return dec;
+}
+const ensureDecisions = () => decPromise || (decPromise = loadDecisions());
+async function saveDecision(bn, decision, note){
+  const r = await apiCall('decision_save', {bill_no: bn, decision, note: note || ''});
+  if (r && r.ok){
+    decPromise = null;
+    await ensureDecisions();
+    if (cal.data) await loadCalendar();
+    if (cal.agenda) await loadAgenda();
+  }
+  return r;
+}
+// The decision on a bill's own pop-up: leadership chooses and may leave a note for the
+// chair; the committee's chair and vice chair see what was decided; nobody else sees
+// anything here.
+function paintDecBox(bi, bn, msg){
+  const box = document.getElementById('decbox');
+  if (!box || box.dataset.bn !== bn) return;
+  box.className = ''; box.innerHTML = '';
+  // Leadership only: nobody else is ever sent a decision, so there is nothing to draw.
+  if (!(me && me.is_leadership) || bi !== me.biennium) return;
+  const cur = dec.by.get(bn);
+  box.className = 'planfloor';
+  box.innerHTML = `<b style="flex-basis:100%">Your office's decision</b>${decideSelect(bn, cur ? cur.decision : 'none')}
+    <input data-decide-note="${esc(bn)}" placeholder="A note for your office (optional)" value="${esc((cur && cur.note) || '')}" style="flex:1 1 200px">
+    <div id="decmsg" class="meta" style="display:block;flex-basis:100%">${esc(msg || (cur
+      ? `Decided by ${cur.by || 'your office'} on ${new Date(cur.at).toLocaleDateString([], {month: 'short', day: 'numeric'})}. Only your office sees this.`
+      : 'Only your office sees this. Bring to Floor Now also asks the chair and vice chair for a floor brief.'))}</div>`;
+}
+document.addEventListener('change', async e => {
+  let sel = e.target.closest('[data-decide]');
+  const noteEl = e.target.closest('[data-decide-note]');
+  // Changing only the note saves it with the decision already chosen.
+  if (!sel && noteEl) sel = document.querySelector(`#decbox [data-decide="${CSS.escape(noteEl.dataset.decideNote)}"]`);
+  if (!sel || (noteEl && sel.value === 'none')) return;
+  const bn = sel.dataset.decide;
+  const note = document.querySelector(`[data-decide-note="${CSS.escape(bn)}"]`);
+  sel.disabled = true;
+  const r = await saveDecision(bn, sel.value, note ? note.value.trim() : '');
+  sel.disabled = false;
+  let msg = '';
+  if (!r || !r.ok) msg = 'Not saved: ' + ((r && r.error) === 'offline' ? 'no connection' : ((r && r.error) || 'try again'));
+  else if (r.data.floor && r.data.floor.ok) msg = r.data.floor.data.alerted.length
+      ? `Saved. Asked ${r.data.floor.data.committee} for a floor brief: ${r.data.floor.data.alerted.join(', ')}.`
+      : `Saved. Nobody was alerted: no chair or vice chair of ${r.data.floor.data.committee} has an access code linked yet.`;
+  else if (r.data.floor && r.data.floor.need_committee) msg = 'Saved. The record does not say which committee has this bill: press Plan for Floor above and choose it, to send the brief request.';
+  else msg = sel.value === 'none' ? 'Decision withdrawn.' : 'Saved. Only your office sees this.';
+  if (r && r.ok && r.data.floor && r.data.floor.ok){ serverWatch.add(`${me.biennium}|${bn}`); updateWatchCount(); }
+  const body = document.getElementById('dbody');
+  if (dlg.open && document.getElementById('calcards')) openCalDay(body.dataset.calDate);
+  else if (dlg.open && document.getElementById('decbox')) paintDecBox(me.biennium, bn, msg);
+  if (currentTab === 'calendar') renderCalendar();
+});
+const calSwitchHTML = () => `<div class="subnav" style="margin:0 0 12px">
+    <button data-calmode="days" class="${calMode === 'days' ? 'on' : ''}">Month</button>
+    <button data-calmode="plans" class="${calMode === 'plans' ? 'on' : ''}">Plans by day</button>
+    ${me && me.is_leadership ? `<button data-calmode="decisions" class="${calMode === 'decisions' ? 'on' : ''}">Decisions</button>` : ''}</div>`;
+// One committee's sitting on one day: its time and room, every bill with the business
+// planned on it and the decision that stands. Used in the day pop-up and in the list.
+function calDayCardHTML(d){
+  const canDecide = !!((cal.data && cal.data.can_decide) || (cal.agenda && cal.agenda.can_decide));
+  const bi = (cal.data && cal.data.biennium) || (cal.agenda && cal.agenda.biennium) || '';
+  return `<div class="card hue" style="--h:${cmHue(d.committee)};border-left:4px solid var(--sc)">
+      <div class="row"><div class="grow">${cmChip(calCmtName(d), {kpid: d.committee_kpid})}
+          ${d.cancelled ? ' <span class="pill bad">Not meeting</span>' : ''}
+          <div class="meta" style="margin-top:6px">${[d.start && d.end ? clock12(d.start) + ' – ' + clock12(d.end) : d.start ? clock12(d.start) : '',
+            d.room ? 'Room ' + esc(d.room) : ''].filter(Boolean).join(' · ') || 'Time not set'}</div></div>
+        ${d.can_edit ? `<button class="pill" data-cal="edit" data-kpid="${esc(d.committee_kpid)}" data-date="${esc(d.date)}">Edit</button>` : ''}</div>
+      ${d.note ? `<div style="margin-top:8px;white-space:pre-wrap">${esc(d.note)}</div>` : ''}
+      ${d.bills.length ? `<div style="margin-top:8px">${d.bills.map(b => `
+        <div class="calbillrow" data-open="${esc(bi + '|' + b.bill_no)}">
+          <div>${billNo(b.bill_no)} <span class="cbtitle">${esc(b.title || '')}</span></div>
+          <div class="meta" style="margin-top:6px">${(b.business || []).map(busPill).join(' ') || '<span>Business not stated</span>'} ${decPill(b.decision)}
+            ${canDecide ? decideSelect(b.bill_no, b.decision ? b.decision.decision : 'none') : ''}</div></div>`).join('')}</div>`
+        : '<div class="meta" style="margin-top:8px">No bills listed yet.</div>'}
+      ${d.by ? `<div class="meta" style="margin-top:8px">Entered by ${esc(d.by)}</div>` : ''}</div>`;
+}
+// "Plans by day": every committee day in the next three months as a list - a chair's
+// own committee, or every committee for leadership (api_calendar decides which).
+async function loadAgenda(){
+  const from = new Date(), to = new Date();
+  from.setDate(from.getDate() - 1); to.setDate(to.getDate() + 92);
+  cal.agendaLoading = true; cal.agendaError = '';
+  const r = await apiCall('calendar', {from: ymd(from), to: ymd(to)});
+  cal.agendaLoading = false;
+  if (r && r.ok) cal.agenda = r.data; else cal.agendaError = 'Could not load the plans.';
+  if (currentTab === 'calendar' && calMode === 'plans') renderCalendar();
+}
+function renderAgenda(){
+  if (!cal.agenda && !cal.agendaLoading && !cal.agendaError) loadAgenda();
+  if (!cal.agenda){
+    view.innerHTML = calSwitchHTML() + (cal.agendaError ? `<div class="bubble" style="margin-top:8px"><b>${esc(cal.agendaError)}</b></div>` : skeletonHTML(4));
+    return;
+  }
+  const byDate = new Map();
+  for (const d of cal.agenda.days || []){ if (!byDate.has(d.date)) byDate.set(d.date, []); byDate.get(d.date).push(d); }
+  view.innerHTML = calSwitchHTML() +
+    `<div class="count">${cal.agenda.can_decide ? 'What every committee plans, day by day' : "Your committee's plans, day by day"} · the next three months</div>` +
+    (byDate.size ? [...byDate.entries()].map(([date, list]) =>
+        `<h2>${esc(new Date(date + 'T12:00:00').toLocaleDateString([], {weekday: 'long', month: 'long', day: 'numeric'}))}</h2>` + list.map(calDayCardHTML).join('')).join('')
+      : `<div class="bubble" style="margin-top:8px"><b>No committee days planned yet.</b>Open Month, tap a day and add one: the bills and the business on each are the plan.</div>`);
+}
+function renderDecisions(){
+  if (!dec.list && !dec.loading) ensureDecisions();
+  if (!dec.list){
+    view.innerHTML = calSwitchHTML() + (dec.error ? `<div class="bubble" style="margin-top:8px"><b>${esc(dec.error)}</b></div>` : skeletonHTML(3));
+    return;
+  }
+  view.innerHTML = calSwitchHTML() +
+    `<div class="count">${dec.list.length} decision${dec.list.length === 1 ? '' : 's'} by your office · seen by your office only</div>` +
+    (dec.list.length ? `<div class="tiles">${dec.list.map(x => `
+      <div class="card row${stageCls(x.stage)}"${stageAttr(x.stage)} data-open="${esc(dec.bi + '|' + x.bill_no)}" role="button" tabindex="0" aria-label="Open ${esc(x.bill_no)}">
+        <span class="ico"><svg class="i"><use href="#i-bill"/></svg></span>
+        <div class="grow">${billNo(x.bill_no)}
+          <div class="title">${esc(x.title || '')}</div>
+          <div class="meta">${stageChip(x.stage)} ${decPill(x)}</div>
+          ${x.note ? `<div class="meta" style="margin-top:4px;display:block">${esc(x.note)}</div>` : ''}
+          <div class="meta" style="margin-top:4px">${esc([x.by, x.at ? new Date(x.at).toLocaleDateString([], {month: 'short', day: 'numeric'}) : ''].filter(Boolean).join(' · '))}</div>
+          ${dec.can ? `<div style="margin-top:8px">${decideSelect(x.bill_no, x.decision)}</div>` : ''}</div></div>`).join('')}</div>`
+      : `<div class="bubble" style="margin-top:8px"><b>No decisions yet.</b>Decide on a bill from a committee day, or from the bill itself. Only your office sees them.</div>`);
+}
+const calCmtName = d => ((d.chamber === 'House' || d.chamber === 'Senate') ? d.chamber + ' ' : '') + (d.committee || d.title || '');
+async function loadCalendar(){
+  if (!cal.month){ const n = new Date(); cal.month = new Date(n.getFullYear(), n.getMonth(), 1); }
+  const start = new Date(cal.month); start.setDate(1 - start.getDay());
+  const end = new Date(start); end.setDate(start.getDate() + 41);
+  cal.loading = true; cal.error = '';
+  if (currentTab === 'calendar') renderCalendar();
+  const r = await apiCall('calendar', {from: ymd(start), to: ymd(end)});
+  cal.loading = false;
+  if (r && r.ok) cal.data = r.data;
+  else cal.error = !access ? 'The calendar needs an access code.'
+    : (r && r.error === 'offline') ? 'Could not reach the calendar. Check your connection.'
+    : 'Could not load the calendar' + (r && r.error ? ': ' + r.error : '.');
+  if (currentTab === 'calendar') renderCalendar();
+}
+function renderCalendar(){
+  if (calMode === 'plans') return renderAgenda();
+  if (calMode === 'decisions' && !(me && me.is_leadership)) calMode = 'days';   // leadership only
+  if (calMode === 'decisions') return renderDecisions();
+  if (!cal.month || (!cal.data && !cal.loading && !cal.error)){ loadCalendar(); return; }
+  const first = new Date(cal.month), start = new Date(first); start.setDate(1 - first.getDay());
+  const today = ymd(new Date());
+  const canEdit = !!(cal.data && (cal.data.editable || []).length);
+  const cells = [];
+  for (let i = 0; i < 42; i++){
+    const d = new Date(start); d.setDate(start.getDate() + i);
+    const date = ymd(d), days = calDaysOn(date);
+    cells.push(`<button class="calday${d.getMonth() !== first.getMonth() ? ' out' : ''}${date === today ? ' today' : ''}" data-cal-day="${date}"
+        aria-label="${esc(d.toLocaleDateString([], {weekday: 'long', month: 'long', day: 'numeric'}))}${days.length ? ', ' + days.length + ' committee day' + (days.length === 1 ? '' : 's') : ''}">
+      <span class="d">${d.getDate()}</span>
+      ${days.slice(0, 3).map(x => `<span class="calchip${x.cancelled ? ' off' : ''}" style="--h:${cmHue(x.committee)}">${esc((x.chamber === 'House' ? 'H ' : x.chamber === 'Senate' ? 'S ' : '') + x.committee)}${x.bills.length ? ' · ' + x.bills.length : ''}</span>`).join('')}
+      ${days.length > 3 ? `<span class="calmore">+${days.length - 3} more</span>` : ''}</button>`);
+  }
+  view.innerHTML = calSwitchHTML() + `
+    <div class="calhead">
+      <button class="pill" data-cal-nav="-1" aria-label="Previous month">‹</button>
+      <b>${esc(first.toLocaleDateString([], {month: 'long', year: 'numeric'}))}${cal.loading ? ' <span class="meta" style="display:inline">Loading…</span>' : ''}</b>
+      <button class="pill" data-cal-nav="0">Today</button>
+      <button class="pill" data-cal-nav="1" aria-label="Next month">›</button>
+    </div>
+    ${cal.error ? `<div class="bubble" style="margin:8px auto 14px"><b>${esc(cal.error)}</b></div>` : ''}
+    <div class="calgrid">${['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(w => `<span class="caldow">${w}</span>`).join('')}${cells.join('')}</div>
+    <div class="count" style="margin-top:10px">${canEdit ? 'Tap a day to add a committee day, list its bills and say what the business is'
+      : 'Tap a day to see which committees sit and what they plan to take up'}</div>`;
+}
+function calBillRow(b){
+  return `<div class="calbill"><input data-f="bill" value="${esc(b.bill_no || '')}" placeholder="HB2001" autocapitalize="characters" spellcheck="false" aria-label="Bill number">
+    <span class="busrow">${BUSINESS.map(([k, l]) => `<button type="button" class="pill ${(b.business || []).includes(k) ? 'on' : ''}" data-cal="bus" data-bus="${k}">${l}</button>`).join('')}</span>
+    <button type="button" class="tagx" data-cal="rmbill" aria-label="Remove this bill">×</button></div>`;
+}
+// "1:30 pm" (the API's meeting time) as 13:30, to pre-fill a new day.
+const time24 = t => { const m = /^\s*(\d{1,2})(?::(\d{2}))?\s*([ap])\.?m\.?\s*$/i.exec(t || ''); if (!m) return '';
+  return `${String(Number(m[1]) % 12 + (m[3].toLowerCase() === 'p' ? 12 : 0)).padStart(2, '0')}:${m[2] || '00'}`; };
+const plusHour = t => { if (!t) return ''; const [h, m] = t.split(':').map(Number); return `${String(Math.min(h + 1, 23)).padStart(2, '0')}:${String(m).padStart(2, '0')}`; };
+function calFormHTML(date, kpid){
+  const editable = (cal.data && cal.data.editable) || [];
+  const cur = kpid ? calDaysOn(date).find(d => d.committee_kpid === kpid) : null;
+  const pick = kpid || (editable[0] || {}).kpid || '';
+  const usual = cmtByKpid[pick] || {};
+  const start = cur ? (cur.start || '') : time24(usual.mtg_time);
+  const end = cur ? (cur.end || '') : plusHour(time24(usual.mtg_time));
+  const room = cur ? (cur.room || '') : (usual.mtg_room || '');
+  const bills = cur && cur.bills.length ? cur.bills : [{bill_no: '', business: []}];
+  return `<div class="card calform" id="calform">
+    <b>${cur ? 'Edit this committee day' : 'Add a committee day'}</b>
+    <label>Committee<select data-f="kpid" ${cur ? 'disabled' : ''}>${editable.map(e =>
+      `<option value="${esc(e.kpid)}" ${e.kpid === pick ? 'selected' : ''}>${esc(calCmtName(e))}</option>`).join('')}</select></label>
+    <div class="calrow"><label>Starts<input type="time" data-f="start" value="${esc(start)}"></label>
+      <label>Ends<input type="time" data-f="end" value="${esc(end)}"></label>
+      <label>Room<input data-f="room" value="${esc(room)}" placeholder="Room"></label></div>
+    <div class="flabel" style="margin:12px 0 4px">Bills that day, and the business on each</div>
+    <div id="calbills">${bills.map(calBillRow).join('')}</div>
+    <button class="pill" data-cal="addbill" type="button">Add another bill</button>
+    <label style="margin-top:12px">Note<textarea data-f="note" placeholder="Anything the committee should know">${esc(cur ? cur.note || '' : '')}</textarea></label>
+    <label class="calcheck"><input type="checkbox" data-f="cancelled" ${cur && cur.cancelled ? 'checked' : ''}> Not meeting this day (cancelled)</label>
+    <div id="calmsg" class="meta" style="min-height:1.4em;display:block;margin-top:6px"></div>
+    <div class="calrow" style="justify-content:flex-end;align-items:center">
+      ${cur ? `<button class="pill" data-cal="delete" type="button">Remove this day</button>` : ''}
+      <button class="pill" data-cal="cancel" type="button">Cancel</button>
+      <button class="btn primary" data-cal="save" type="button">Save</button></div></div>`;
+}
+// One day in the pop-up: every committee sitting, its bills and their business; with
+// `edit` ('' for a new day, a kpid to change one) the form is drawn under them.
+function openCalDay(date, edit){
+  const days = calDaysOn(date);
+  const editable = (cal.data && cal.data.editable) || [];
+  setDno(new Date(date + 'T12:00:00').toLocaleDateString([], {weekday: 'long', month: 'long', day: 'numeric'}));
+  document.getElementById('dtitle').textContent = 'Committee calendar';
+  annotCtx = null;
+  const body = document.getElementById('dbody');
+  body.dataset.calDate = date;
+  const cards = `<div id="calcards">${days.map(calDayCardHTML).join('')}</div>`;
+  body.innerHTML =
+    (days.length ? cards : `<div class="bubble" style="margin-top:8px"><b>Nothing planned this day.</b>${editable.length ? 'Add a committee day below.' : ''}</div><div style="height:18px"></div>`) +
+    (edit !== undefined ? calFormHTML(date, edit)
+      : editable.length ? `<div class="slot-actions"><button class="btn primary" data-cal="new">Add a committee day</button></div>` : '');
+  if (edit !== undefined) ensureBillIndex().catch(() => {});
+  if (!dlg.open) dlg.showModal();
+  if (edit !== undefined){ const f = document.getElementById('calform'); if (f) body.scrollTop = Math.max(0, f.offsetTop - 12); }
+}
+async function calClick(e){
+  const b = e.target.closest('[data-cal]');
+  const act = b.dataset.cal, date = document.getElementById('dbody').dataset.calDate;
+  if (act === 'new') return openCalDay(date, '');
+  if (act === 'edit') return openCalDay(b.dataset.date || date, b.dataset.kpid);
+  if (act === 'cancel') return openCalDay(date);
+  if (act === 'bus'){ b.classList.toggle('on'); return; }
+  if (act === 'addbill'){ document.getElementById('calbills').insertAdjacentHTML('beforeend', calBillRow({})); return; }
+  if (act === 'rmbill'){ b.closest('.calbill').remove(); return; }
+  const form = document.getElementById('calform'), msg = document.getElementById('calmsg');
+  const f = k => form.querySelector(`[data-f="${k}"]`);
+  const kpid = f('kpid').value;
+  if (act === 'delete'){
+    msg.textContent = 'Removing…';
+    const r = await apiCall('calendar_delete', {committee_kpid: kpid, date});
+    if (!r.ok){ msg.textContent = 'Not removed: ' + (r.error || 'try again'); return; }
+    await loadCalendar(); return openCalDay(date);
+  }
+  if (act === 'save'){
+    const bills = [...form.querySelectorAll('.calbill')].map(row => ({
+      bill_no: row.querySelector('[data-f="bill"]').value.trim().toUpperCase().replace(/\s+/g, ''),
+      business: [...row.querySelectorAll('[data-bus].on')].map(x => x.dataset.bus)})).filter(x => x.bill_no);
+    // A mistyped number is caught here when the bill index is on the device; the
+    // database stores whatever it is given, so this is the only place to catch it.
+    const unknown = billIndex && cal.data
+      ? bills.filter(x => !billIndex.some(bb => bb.b === cal.data.biennium && bb.n === x.bill_no)).map(x => x.bill_no) : [];
+    if (unknown.length){ msg.textContent = `Not a bill this biennium: ${unknown.join(', ')}. Check the number.`; return; }
+    msg.textContent = 'Saving…';
+    const r = await apiCall('calendar_save', {committee_kpid: kpid, date, start: f('start').value, end: f('end').value,
+      room: f('room').value.trim(), note: f('note').value.trim(), cancelled: f('cancelled').checked, bills});
+    if (!r.ok){ msg.textContent = 'Not saved: ' + (r.error === 'offline' ? 'no connection' : (r.error || 'try again')); return; }
+    await loadCalendar(); return openCalDay(date);
+  }
+}
+// Choosing another committee on a NEW day pre-fills that committee's usual time and room.
+document.getElementById('dbody').addEventListener('change', e => {
+  if (!e.target.matches('#calform [data-f="kpid"]')) return;
+  const usual = cmtByKpid[e.target.value] || {}, form = document.getElementById('calform');
+  form.querySelector('[data-f="start"]').value = time24(usual.mtg_time);
+  form.querySelector('[data-f="end"]').value = plusHour(time24(usual.mtg_time));
+  form.querySelector('[data-f="room"]').value = usual.mtg_room || '';
+});
+
+// ── routing ─────────────────────────────────────────────────────────
+// Pages is static, so routes live in the hash. Before this the app had no URLs at
+// all — you could not send anyone a link to a bill, bookmark one, or press Back.
+// For an office where "send me the link" is a daily operation that was the most
+// expensive gap in the product, and it is a functional one, not a cosmetic one.
+//
+// applyingRoute guards the obvious loop: applyRoute() calls the same open* functions
+// that a click does, and those set the URL. Without the guard they fight each other.
+const TABS = ['feed', 'watch', 'notes', 'search', 'calendar', 'members', 'orgs', 'stats'];
+let applyingRoute = false;
+
+function go(hash, replace){
+  if (applyingRoute || location.hash === hash) return;
+  try {
+    if (replace) history.replaceState(null, '', hash);
+    else history.pushState(null, '', hash);
+  } catch { location.hash = hash; }   // file:// and some embedded views reject pushState
+}
+
+function tabRoute(){
+  const t = currentTab === 'watch' ? '' : (currentTab === 'feed' && feedMode === 'hearings') ? 'hearings' : currentTab;
+  const q = document.getElementById('q').value.trim();
+  // The box filters members and organizations too, so those views are equally worth
+  // sharing — "the orgs list filtered to 'realtors'" is a link someone will want.
+  const carries = ['search', 'members', 'orgs'].includes(currentTab) || t === 'hearings';
+  const p = new URLSearchParams();
+  if (q && carries) p.set('q', q);
+  if (currentTab === 'orgs' && orgGroup !== 'stakeholders') p.set('g', orgGroup);
+  const qs = p.toString();
+  return '#/' + t + (qs ? '?' + qs : '');
+}
+
+function parseRoute(){
+  const raw = location.hash.replace(/^#\/?/, '');
+  const [path, qs] = raw.split('?');
+  return {
+    parts: path ? path.split('/').map(decodeURIComponent) : [],
+    q: new URLSearchParams(qs || ''),
+  };
+}
+
+async function applyRoute(){
+  applyingRoute = true;
+  try {
+    const {parts, q} = parseRoute();
+    let [kind, a, b] = parts;
+    if (kind === 'bills') kind = 'search';   // the tab is called Bills; the route kept its name
+    if (kind === 'bill' && a && b){ if (!lastTab) render('watch'); return await openBill(a + '|' + b); }
+    if (kind === 'member' && a){ if (!lastTab) render('members'); return openPerson(a); }
+    if (kind === 'hearing' && a && b){
+      await ensureHearings();
+      if (!lastTab){ feedMode = 'hearings'; render('feed'); }
+      return openHearing(a + '|' + b);
+    }
+    if (kind === 'org' && a){ if (!lastTab) render('orgs'); return ensureOrgs().then(() => openOrg(a)); }
+    if (dlg.open) dlg.close();
+    const term = q.get('q');
+    // Hearings is a part of Activity now; its old address still lands on it.
+    if (kind === 'hearings'){ feedMode = 'hearings'; return render('feed', {q: term}); }
+    if (kind === 'feed' && feedMode === 'hearings') feedMode = 'recent';
+    const tab = TABS.includes(kind) ? kind : 'watch';
+    if (tab === 'orgs') orgGroup = q.get('g') || orgGroup || 'stakeholders';
+    // A shared link to a filtered list arrives filtered; a plain one arrives as the
+    // screen was last left.
+    render(tab, term !== null ? {q: term} : {});
+  } finally { applyingRoute = false; }
+}
+addEventListener('hashchange', applyRoute);
+addEventListener('popstate', applyRoute);
+
+// Closing the dialog must drop the detail route, or Back re-opens what you just shut.
+//
+// This deliberately does NOT rely on the dialog's own `close` event. Measured in this
+// environment, `close` does not fire at all: `open` flips true -> false and no listener
+// runs, including one attached seconds earlier. Same family as smooth scrollIntoView
+// silently doing nothing here. So every path that closes the dialog goes through this
+// function, and the `close` listener below is a belt-and-braces extra rather than the
+// mechanism.
+function closeDetail(){
+  if (dlg.open) dlg.close();
+  if (!applyingRoute) go(tabRoute(), true);
+}
+dlg.addEventListener('close', () => { if (!applyingRoute) go(tabRoute(), true); });
+// Escape closes a <dialog> natively; catch it so the route is cleaned up too.
+dlg.addEventListener('cancel', () => { if (!applyingRoute) go(tabRoute(), true); });
+dlg.addEventListener('keydown', e => { if (e.key === 'Escape') setTimeout(closeDetail, 0); });
+
+document.getElementById('dlink').onclick = async () => {
+  const url = location.href;
+  const btn = document.getElementById('dlink');
+  try { await navigator.clipboard.writeText(url); btn.textContent = '✓'; }
+  catch { btn.textContent = '⚠'; }          // clipboard needs https or localhost
+  setTimeout(() => { btn.textContent = '🔗'; }, 1200);
+};
+
+// ── events ──────────────────────────────────────────────────────────
+document.querySelector('nav').onclick = e => {
+  const b = e.target.closest('button[data-tab]');
+  if (!b) return;
+  // Bills & People reopens on whichever part was open last, like every other tab.
+  render(b.dataset.tab === 'search' ? bpTab : b.dataset.tab);
+  go(tabRoute());
+};
+// Bill rows carry role="button" tabindex="0", so they must answer the keyboard the
+// way a real button does. Without this they are reachable by Tab and then dead.
+const deck = document.getElementById('deck');   // the view AND the activity banner
+deck.addEventListener('keydown', e => {
+  if (e.key !== 'Enter' && e.key !== ' ') return;
+  const row = e.target.closest('[data-open],[data-member],[data-org],[data-hearing],[data-annot="open"]');
+  if (!row || row.tagName === 'BUTTON') return;
+  e.preventDefault();
+  row.click();
+});
+deck.onclick = e => {
+  if (e.target.closest('select, input, textarea')) return;   // a control in a row is not a tap on the row
+  if (chipClick(e)) return;
+  const cm = e.target.closest('[data-calmode]');
+  if (cm){ calMode = cm.dataset.calmode; return render('calendar'); }
+  const ce = e.target.closest('[data-cal="edit"]');
+  if (ce) return openCalDay(ce.dataset.date, ce.dataset.kpid);
+  // the switches at the top of screens
+  const bp = e.target.closest('[data-bp]');
+  if (bp){ render(bp.dataset.bp === 'people' ? peopleTab : bp.dataset.bp); return go(tabRoute()); }
+  const fm = e.target.closest('[data-feedmode]');
+  if (fm){
+    const mode = fm.dataset.feedmode;
+    if (fm.dataset.where === 'aside' && mode !== 'hearings'){ asideMode = mode; return renderAside(); }
+    feedMode = mode; render('feed'); return go(tabRoute());
+  }
+  const wm = e.target.closest('[data-watchmode]');
+  if (wm){ watchMode = wm.dataset.watchmode; watchEdit = false; return render('watch'); }
+  if (e.target.closest('[data-boardrefresh]')){ board.rows = null; board.error = ''; return render('watch'); }
+  const we = e.target.closest('[data-watchedit]');
+  if (we){
+    if (we.dataset.watchedit === 'all'){
+      const shown = [...view.querySelectorAll('.pill.bad[data-watch]')].map(x => x.dataset.watch);
+      if (!shown.length || !confirm(`Remove these ${shown.length} bills from your watchlist?`)) return;
+      for (const k of shown){
+        watch.delete(k);
+        if (serverWatch.has(k)){ serverWatch.delete(k); apiCall('unfollow', {subject_type: 'bill', subject_key: k}); }
+      }
+      save(LS.watch, [...watch]); updateWatchCount(); watchEdit = false;
+      ensureMe(true);
+    } else watchEdit = !watchEdit;
+    return render('watch');
+  }
+  const td = e.target.closest('[data-taskdone]');
+  if (td){
+    e.stopPropagation();
+    const id = td.dataset.taskdone;
+    td.disabled = true; td.textContent = 'Saving…';
+    return apiCall('task_done', {task_id: id}).then(r => {
+      if (r && r.ok && me){ me.tasks = (me.tasks || []).filter(t => String(t.task_id) !== String(id)); cacheMe(); onMe(); }
+      else { td.disabled = false; td.textContent = 'Done'; }
+    });
+  }
+  if (e.target.closest('[data-go]')) return goClick(e);
+  const cd = e.target.closest('[data-cal-day]');
+  if (cd) return openCalDay(cd.dataset.calDay);
+  const cn = e.target.closest('[data-cal-nav]');
+  if (cn){
+    const step = Number(cn.dataset.calNav), n = new Date();
+    cal.month = step ? new Date(cal.month.getFullYear(), cal.month.getMonth() + step, 1) : new Date(n.getFullYear(), n.getMonth(), 1);
+    return loadCalendar();
+  }
+  if (e.target.closest('[data-annot]')) return annotClick(e);
+  const gb = e.target.closest('[data-orggroup]');
+  if (gb){ orgGroup = gb.dataset.orggroup; renderOrgs(); return go(tabRoute(), true); }
+  const w = e.target.closest('[data-watch]');
+  if (w) return toggleWatch(w.dataset.watch, e);
+  const m = e.target.closest('[data-member]');
+  if (m) return openMember(m.dataset.member);
+  const g = e.target.closest('[data-org]');
+  if (g) return openOrg(g.dataset.org);
+  const hh = e.target.closest('[data-hearing]');
+  if (hh) return openHearing(hh.dataset.hearing);
+  const o = e.target.closest('[data-open]');
+  if (o) openBill(o.dataset.open);
+};
+// The filter chips: data-fv="mv-…" for members, "bv-…" for bills.
+deck.addEventListener('change', e => {
+  const sel = e.target.closest('[data-fv]');
+  if (!sel) return;
+  const [grp, k] = sel.dataset.fv.split('-');
+  (grp === 'mv' ? memberView : billView)[k] = sel.value;
+  if (grp === 'mv' && k === 'chamber') memberView.cmt = 'all';
+  render(currentTab);
+});
+// The box at the top filters people, organizations and hearings where those are
+// showing; anywhere else, typing in it searches bills. This is the ONLY input handler.
+document.getElementById('q').oninput = () => {
+  const term = document.getElementById('q').value.trim().toLowerCase();
+  if (currentTab === 'members'){ memberFilter = term; renderMembers(); }
+  else if (currentTab === 'orgs'){ orgFilter = term; renderOrgs(); }
+  else if (currentTab === 'feed' && feedMode === 'hearings'){ hearingFilter = term; draw('feed'); }
+  else if (currentTab === 'search') draw('search');
+  else { const v = document.getElementById('q').value; render('search', {q: v}); }
+  // replace, not push: typing eight characters should not cost eight Back presses.
+  go(tabRoute(), true);
+};
+
+// ── notes, flags, tags (live on THIS device; leave as a file) ───────
+// The dashboard is static: nothing here can be posted anywhere. Annotations live in
+// localStorage on the device that made them, keyed on STABLE identities — never a
+// bill's apn, which moves as the bill advances — and leave as a small JSON file the
+// office imports with ops/import_annotations.py. That is the tier model: a reader's
+// notes are theirs until they hand the file over; imported, they are the office's.
+LS.annot  = 'skywalker.annot.v1';
+LS.author = 'skywalker.author.v1';
+const FLAGS = ['priority', 'watch closely', 'needs follow-up', 'leadership', 'constituent interest'];
+const ANNOT_FORMAT = 'skywalker-annotations/1';
+let annot = (() => { const a = load(LS.annot, {}); return (a && typeof a === 'object' && !Array.isArray(a)) ? a : {}; })();
+let annotCtx = null;   // {type, key, label} of whatever the detail dialog is showing
+
+const akey = (type, key) => type + ':' + (
+  type === 'bill'    ? `${key.biennium}|${key.bill_no}` :
+  type === 'hearing' ? `${key.committee}|${key.date}` : String(key.id));
+function aget(type, key){ return annot[akey(type, key)] || null; }
+function aset(type, key, label, mut){
+  const k = akey(type, key);
+  const cur = annot[k] || {type, key, label, flags: [], tags: [], notes: []};
+  cur.label = label || cur.label;
+  mut(cur);
+  if (!cur.flags.length && !cur.tags.length && !cur.notes.length) delete annot[k];
+  else { cur.updated = new Date().toISOString(); annot[k] = cur; }
+  save(LS.annot, annot);
+  updateNotesCount();
+  scheduleReport();
+}
+function author(){ return load(LS.author, '') || ''; }
+function ensureAuthor(){
+  let a = author();
+  if (!a){
+    a = (prompt('Your name, so the office knows whose notes these are:') || '').trim().slice(0, 80);
+    if (a) save(LS.author, a);
+  }
+  return a;
+}
+function updateNotesCount(){
+  const el = document.getElementById('ncount');
+  const n = Object.keys(annot).length;
+  if (el) el.textContent = n ? String(n) : '';
+}
+function newId(){
+  return crypto.randomUUID ? crypto.randomUUID()
+       : Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+}
+function allTags(){
+  const s = new Set();
+  for (const a of Object.values(annot)) for (const t of a.tags) s.add(t);
+  return [...s].sort();
+}
+function annotBadge(type, key){
+  const a = aget(type, key);
+  if (!a) return '';
+  const bits = [];
+  if (a.flags.length) bits.push(a.flags.join(', '));
+  if (a.tags.length) bits.push('#' + a.tags.join(' #'));
+  if (a.notes.length) bits.push(`${a.notes.length} note${a.notes.length === 1 ? '' : 's'}`);
+  return `<span class="abadge">✎ ${esc(bits.join(' · '))}</span>`;
+}
+function annotPanel(type, key){
+  const a = aget(type, key) || {flags: [], tags: [], notes: []};
+  const who = author();
+  const when = t => new Date(t).toLocaleString([], {month:'short', day:'numeric', year:'numeric', hour:'numeric', minute:'2-digit'});
+  return `<div class="card annot" id="annot">
+    <div class="meta" style="justify-content:space-between">
+      <b>Notes, flags &amp; tags <button class="tagx" data-annot="toggle" style="color:var(--accent);font-weight:400">Hide</button></b>
+      <span>${who ? 'By ' + esc(who) + ' · ' : ''}On this device ·
+        <a href="#/notes" style="color:var(--accent);text-decoration:none">Export</a></span>
+    </div>
+    <div class="flagrow">${FLAGS.map(f => `<button class="pill ${a.flags.includes(f) ? 'on' : ''}"
+        data-annot="flag" data-flag="${esc(f)}">${esc(cap(f))}</button>`).join('')}</div>
+    <div class="flagrow">${a.tags.map(t => `<span class="pill">#${esc(t)}
+        <button class="tagx" data-annot="untag" data-tag="${esc(t)}" aria-label="Remove tag">×</button></span>`).join('')}
+      <input data-annot-input="tag" list="taglist" placeholder="Add a tag, then Enter" size="18">
+      <datalist id="taglist">${allTags().map(t => `<option value="${esc(t)}">`).join('')}</datalist>
+    </div>
+    ${a.notes.map(n => `<div class="note"><div class="meta" style="justify-content:space-between">
+        <span>${when(n.at)} · <span class="pill">${esc(audLabel(n.aud))}</span>${reportedPill(n)}</span>
+        <button class="tagx" data-annot="delnote" data-id="${esc(n.id)}">Delete</button></div>${esc(n.body)}</div>`).join('')}
+    <textarea data-annot-input="note" placeholder="Add a note…"></textarea>
+    <div style="display:flex;gap:8px;justify-content:flex-end;align-items:center;flex-wrap:wrap;margin-top:4px">
+      <label class="meta" style="align-items:center">Who can see it
+        <select data-annot-input="aud">${audOptions().map(([v, l]) =>
+          `<option value="${v}" ${v === lastAud() ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select></label>
+      <button class="pill" data-annot="addnote">Add note</button>
+    </div>
+    ${sharedHTML(akey(type, key), a.notes)}
+  </div>`;
+}
+// A note or a tag is added from the thing it is about: the pop-up opens with one
+// button, "Add a note or tag", and the panel unfolds under it. It starts unfolded
+// when there is something to read - the reader's own notes, or notes shared with them.
+let annotOpen = false;
+function annotWrapHTML(type, key){
+  if (annotOpen) return annotPanel(type, key);
+  return `<div id="annot" class="annotbar"><button class="btn" data-annot="toggle"><svg class="i"><use href="#i-note"/></svg> Add a note or tag</button></div>`;
+}
+function mountAnnot(type, key, label){
+  annotCtx = {type, key, label};
+  const shared = access ? ((access.items[akey(type, key)] || []).length) : 0;
+  annotOpen = !!aget(type, key) || shared > 0;
+  const old = document.getElementById('annot');
+  if (old) old.remove();
+  document.getElementById('dbody').insertAdjacentHTML('afterbegin', annotWrapHTML(type, key));
+}
+function refreshAnnot(){
+  if (!annotCtx) return;
+  const old = document.getElementById('annot');
+  if (old) old.outerHTML = annotWrapHTML(annotCtx.type, annotCtx.key);
+  if (currentTab === 'notes') renderNotes();
+}
+function annotClick(e){
+  const b = e.target.closest('[data-annot]');
+  if (!b) return false;
+  const act = b.dataset.annot;
+  if (act === 'toggle'){ annotOpen = !annotOpen; refreshAnnot(); return true; }
+  if (act === 'export'){ exportAnnotations(); return true; }
+  if (act === 'code'){ askForCode(); return true; }
+  if (act === 'copy'){ copyAnnotations(); return true; }
+  if (act === 'author'){
+    const a = (prompt('Your name:', author()) || '').trim().slice(0, 80);
+    if (a){ save(LS.author, a); renderNotes(); }
+    return true;
+  }
+  if (act === 'clear'){
+    if (confirm('Remove ALL notes, flags and tags on this device? Export first if you want to keep them.')){
+      annot = {}; save(LS.annot, annot); updateNotesCount(); renderNotes();
+    }
+    return true;
+  }
+  if (act === 'open'){
+    // Detail views need their data loaded; from the Notes tab nothing else has
+    // asked for it yet.
+    const [t, ...rest] = b.dataset.target.split(':');
+    const k = rest.join(':');
+    if (t === 'bill') openBill(k);
+    else if (t === 'member') ensureAnalytics().then(() => openMember(k));
+    else if (t === 'org') ensureOrgs().then(() => openOrg(k));
+    else if (t === 'hearing') ensureHearings().then(() => openHearing(k));
+    return true;
+  }
+  if (!annotCtx) return true;
+  const {type, key, label} = annotCtx;
+  if (act === 'flag'){
+    const f = b.dataset.flag;
+    aset(type, key, label, a => { a.flags = a.flags.includes(f) ? a.flags.filter(x => x !== f) : [...a.flags, f]; });
+  } else if (act === 'untag'){
+    const t = b.dataset.tag;
+    aset(type, key, label, a => { a.tags = a.tags.filter(x => x !== t); });
+  } else if (act === 'delnote'){
+    const id = b.dataset.id;
+    aset(type, key, label, a => { a.notes = a.notes.filter(n => n.id !== id); });
+  } else if (act === 'addnote'){
+    const ta = document.querySelector('#annot [data-annot-input="note"]');
+    const body = (ta && ta.value || '').trim();
+    if (!body) return true;
+    if (!ensureAuthor()) return true;
+    const sel = document.querySelector('#annot [data-annot-input="aud"]');
+    const aud = audOptions().some(([v]) => v === sel?.value) ? sel.value : 'me';
+    save(LS.aud, aud);
+    aset(type, key, label, a => { a.notes.push({id: newId(), body, at: new Date().toISOString(), aud}); });
+  }
+  refreshAnnot();
+  return true;
+}
+function annotKey(e){
+  const inp = e.target.closest('[data-annot-input="tag"]');
+  if (!inp || e.key !== 'Enter' || !annotCtx) return;
+  e.preventDefault();
+  const t = inp.value.trim().replace(/^#/, '').slice(0, 80);
+  if (!t) return;
+  const {type, key, label} = annotCtx;
+  aset(type, key, label, a => { if (!a.tags.includes(t)) a.tags.push(t); });
+  refreshAnnot();
+}
+function exportPayload(){
+  return {
+    format: ANNOT_FORMAT, exported_at: new Date().toISOString(), author: author() || null,
+    data_as_of: manifest?.generated_at || null,
+    entries: Object.values(annot).map(a => ({type: a.type, key: a.key, label: a.label,
+      flags: a.flags, tags: a.tags, notes: a.notes})),
+  };
+}
+function exportAnnotations(){
+  if (!ensureAuthor()) return;
+  const json = JSON.stringify(exportPayload(), null, 1);
+  const stamp = new Date().toISOString().slice(0, 16).replace(/[-:T]/g, '');
+  const name = `skywalker-notes-${(author() || 'reader').replace(/[^a-z0-9]+/gi, '-').toLowerCase()}-${stamp}.json`;
+  try {
+    const url = URL.createObjectURL(new Blob([json], {type: 'application/json'}));
+    const a = document.createElement('a');
+    a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+  } catch (err) {
+    trackErr({kind: 'export', msg: String(err.message).slice(0, 200)});
+    prompt('Download blocked here — copy this instead:', json);
+  }
+}
+async function copyAnnotations(){
+  const json = JSON.stringify(exportPayload(), null, 1);
+  try {
+    await navigator.clipboard.writeText(json);
+    alert('Copied. Paste it into a file ending in .json and send that to the office.');
+  } catch { prompt('Copy this:', json); }
+}
+function importAnnotationsFile(file){
+  const r = new FileReader();
+  r.onload = () => {
+    let d;
+    try { d = JSON.parse(r.result); } catch { alert('That is not a JSON file.'); return; }
+    if (d.format !== ANNOT_FORMAT || !Array.isArray(d.entries)){ alert('That is not a Skywalker notes file.'); return; }
+    let n = 0;
+    for (const en of d.entries){
+      if (!en || !en.type || !en.key) continue;
+      aset(en.type, en.key, en.label, a => {
+        for (const f of en.flags || []) if (!a.flags.includes(f)) a.flags.push(f);
+        for (const t of en.tags || []) if (!a.tags.includes(t)) a.tags.push(t);
+        const have = new Set(a.notes.map(x => x.id));
+        for (const x of en.notes || [])
+          if (x && x.id && x.body && !have.has(x.id)) a.notes.push({id: x.id, body: x.body, at: x.at || new Date().toISOString()});
+      });
+      n++;
+    }
+    alert(`Merged ${n} item${n === 1 ? '' : 's'} from ${d.author || 'the file'}.`);
+    renderNotes();
+  };
+  r.readAsText(file);
+}
+function renderNotes(){
+  const items = Object.values(annot).sort((a, b) => (b.updated || '').localeCompare(a.updated || ''));
+  const target = a =>
+    a.type === 'bill'    ? `bill:${a.key.biennium}|${a.key.bill_no}` :
+    a.type === 'member'  ? `member:${a.key.id}` :
+    a.type === 'org'     ? `org:${a.key.id}` :
+    a.type === 'hearing' ? `hearing:${a.key.committee}|${a.key.date}` : '';
+  const KIND = {bill: 'Bill', member: 'Member', org: 'Organization', hearing: 'Hearing'};
+  view.innerHTML = bpBarHTML() + `
+    <div class="card">
+      <div class="meta" style="justify-content:space-between;align-items:center">
+        <span><b>${items.length}</b> annotated item${items.length === 1 ? '' : 's'} on this device${author() ? ` · by ${esc(author())}` : ''}
+          <button class="tagx" data-annot="author" style="color:var(--accent)">${author() ? 'Change name' : 'Set your name'}</button></span>
+        <span style="display:flex;gap:6px;flex-wrap:wrap">
+          <button class="pill" data-annot="copy">Copy</button>
+          <label class="pill" style="cursor:pointer">Load file<input type="file" accept=".json,application/json" id="annotfile" style="display:none"></label>
+          ${items.length ? `<button class="pill" data-annot="clear">Clear all</button>` : ''}
+        </span>
+      </div>
+      <div class="meta" style="margin-top:8px;display:block">Notes, flags and tags stay on this device.
+        <b>Export notes</b> (the button at the bottom of the screen) writes them to a small file you hand
+        to the office, which imports it into the shared database. <b>Load file</b> merges a file — someone
+        else's, or your own from another device — into this one.</div>
+    </div>
+    <div class="card">
+      <div class="meta" style="justify-content:space-between;align-items:center">
+        <span>${access ? `<b>Tier ${access.tier}</b> access on this device`
+                       : 'No access code on this device — you see public information only'}</span>
+        <button class="pill ${access ? '' : 'on'}" data-annot="code">${access ? 'Remove code' : 'Enter access code'}</button>
+      </div>
+      <div class="meta" style="margin-top:8px;display:block">${access ? `
+        With <b>Report new notes to leadership</b> ticked (bottom corner), notes you write
+        <i>from the moment you tick it</i> are sent — earlier notes never are. Notes you share are
+        delivered with the next update, usually within the hour.${access.tier <= 2
+          ? ' Notes marked <b>Only me</b> are never sent.'
+          : ' Notes marked <b>Only me</b> go to leadership only.'}
+        Untick it and nothing leaves this device.` : `
+        An access code is personal. Ask the office for one to see notes shared with you and to
+        share your own.`}</div>
+    </div>
+    ${generalSharedHTML()}
+    ${items.length ? `<div class="tiles">` + items.map(a => `
+      <div class="card row" data-annot="open" data-target="${esc(target(a))}" role="button" tabindex="0"
+           aria-label="Open ${esc(a.label || '')}">
+        <span class="ico" style="--tint:#d9662b"><svg class="i"><use href="#i-note"/></svg></span>
+        <div class="grow">
+          <span class="pill">${esc(KIND[a.type] || cap(a.type))}</span> <b>${esc(a.label || '')}</b>
+          <div class="meta">
+            ${a.flags.map(f => `<span class="pill warn">${esc(cap(f))}</span>`).join('')}
+            ${a.tags.map(t => `<span class="pill">#${esc(t)}</span>`).join('')}
+            ${a.notes.length ? `<span>${a.notes.length} note${a.notes.length === 1 ? '' : 's'}</span>` : ''}
+          </div>
+          ${a.notes.length ? `<div class="meta" style="margin-top:4px;display:block;white-space:pre-wrap">${esc(a.notes[a.notes.length - 1].body.slice(0, 200))}</div>` : ''}
+        </div>
+      </div>`).join('') + `</div>`
+    : `<div class="bubble"><b>Nothing annotated yet.</b>Open any bill, member, organization or hearing and use the panel at the top of it.</div>`}`;
+  const fi = document.getElementById('annotfile');
+  if (fi) fi.onchange = () => { if (fi.files[0]) importAnnotationsFile(fi.files[0]); fi.value = ''; };
+}
+// ── tiers: personal access codes, shared notes, reporting ───────────
+// A code unlocks one tier's notes. Nothing here is a permission CHECK — the page could
+// be edited to skip any if-statement. The notes arrive encrypted (tiers/t1..t4.json) and
+// a code is the only way to get the key; ops/process_inbox.py re-checks everything the
+// page sends. See schema/11_tier_access.sql for the whole model.
+//
+//   Tier 1 the office · Tier 2 leadership · Tier 3 chairs & vice chairs · Tier 4 others
+LS.code   = 'skywalker.code.v1';     // the person's code — needed to unlock each visit
+LS.report = 'skywalker.report.v1';   // is the report box ticked (survives sessions)
+LS.period = 'skywalker.period.v1';   // {id, since}: reporting started when box was ticked
+LS.device = 'skywalker.device.v1';
+LS.aud    = 'skywalker.aud.v1';      // last "who can see it" choice
+LS.sent   = 'skywalker.sent.v1';     // fingerprint of the last report, to skip repeats
+let access = null;                   // {tier, verifier, items}
+
+const AUD = {me: 'Only me', t1: 'Tier 1', t12: 'Tiers 1–2', t123: 'Tiers 1–3', all: 'Everyone'};
+const AUD_BY_TIER = {1: ['me', 't1', 't12', 't123', 'all'], 2: ['me', 't12', 't123', 'all'],
+                     3: ['me', 'all'], 4: ['me']};
+const audLabel = a => AUD[a] || AUD.me;
+const audOptions = () => (AUD_BY_TIER[access?.tier] || ['me']).map(v => [v, AUD[v]]);
+const lastAud = () => { const v = load(LS.aud, 'me'); return audOptions().some(([x]) => x === v) ? v : 'me'; };
+
+const te = new TextEncoder(), td = new TextDecoder();
+const b64d = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+const hexOf = buf => [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
+const hexBytes = s => Uint8Array.from(String(s || '').match(/../g) || [], h => parseInt(h, 16));
+// Must match publish/tier_crypto.py normalize_code(): no I, L, O or U in a code, so
+// the look-alikes fold back to digits.
+const normCode = c => String(c || '').toUpperCase().replace(/[^A-Z0-9]/g, '')
+                        .replace(/O/g, '0').replace(/[IL]/g, '1');
+const sha256hex = async s => hexOf(await crypto.subtle.digest('SHA-256', te.encode(s)));
+async function aesOpen(raw, iv, data){
+  const k = await crypto.subtle.importKey('raw', raw, 'AES-GCM', false, ['decrypt']);
+  return new Uint8Array(await crypto.subtle.decrypt({name: 'AES-GCM', iv}, k, data));
+}
+// Plain fetch, not getJSON: a site published before any code was issued has no tiers/
+// folder, and that is not an error worth a badge.
+async function tierFile(name){
+  const r = await fetch(`${BASE}/tiers/${name}`, {cache: 'no-cache'});
+  if (!r.ok) throw new Error(`tiers/${name}: HTTP ${r.status}`);
+  return r.json();
+}
+
+// Returns {tier, verifier, items} or null when the code is not in the keyring.
+async function unlock(code){
+  const norm = normCode(code);
+  const ring = await tierFile('keyring.json');
+  // Finding our own entry is DELIBERATELY SLOW (PBKDF2, not a plain hash). The keyring
+  // is downloadable by anyone, so a fast fingerprint would let someone guess codes
+  // offline at billions per second - which a 16-character code would not survive. This
+  // costs about a fifth of a second, once, at sign-in. Must match
+  // publish/tier_crypto.py lookup_of(); changing one without the other locks everybody out.
+  const lbase = await crypto.subtle.importKey('raw', te.encode('lookup:' + norm), 'PBKDF2', false, ['deriveBits']);
+  const e = ring.entries?.[hexOf(await crypto.subtle.deriveBits(
+    {name: 'PBKDF2', hash: 'SHA-256', salt: hexBytes(ring.lsalt), iterations: ring.iter}, lbase, 64))];
+  if (!e) return null;
+  const base = await crypto.subtle.importKey('raw', te.encode(norm), 'PBKDF2', false, ['deriveBits']);
+  const wrap = await crypto.subtle.deriveBits(
+    {name: 'PBKDF2', hash: 'SHA-256', salt: b64d(e.s), iterations: ring.iter}, base, 256);
+  const inner = JSON.parse(td.decode(await aesOpen(wrap, b64d(e.n), b64d(e.w))));
+  const f = await tierFile(`t${inner.tier}.json`);
+  const data = JSON.parse(td.decode(await aesOpen(b64d(inner.key), b64d(f.n), b64d(f.c))));
+  return {tier: inner.tier, verifier: await sha256hex('verify:' + norm), items: data.items || {},
+          site: inner.site};
+}
+
+// ── the live side: whip counts, committee plans, briefs, the board ──
+// Everything above this line is PUBLISHED data - built hourly, encrypted, read from
+// files. Everything below is LIVE: the page asks the database a question and the answer
+// depends on who is asking. A deputy whip's request for the whip board comes back with
+// only their own members, because api_call() applies the rule server-side. Nothing here
+// is trusted to do that, and nothing here should ever try.
+let apiUrl;                          // undefined = not looked up yet, null = no API
+async function apiCall(action, payload){
+  if (!access) return {ok: false, error: 'locked'};
+  if (apiUrl === undefined){
+    try { apiUrl = (await getJSON('tiers/api.json')).url || null; } catch { apiUrl = null; }
+  }
+  if (!apiUrl) return {ok: false, error: 'no api'};
+  let r;
+  try {
+    // text/plain is the one cross-site POST a browser makes without asking the server
+    // for permission first. Unlike the note reports this one reads the reply, which
+    // works because the Retool workflow answers with access-control-allow-origin: *.
+    r = await fetch(apiUrl, {method: 'POST', headers: {'Content-Type': 'text/plain'},
+                             body: JSON.stringify({v: access.verifier, action, payload: payload || {}})});
+  } catch (e){
+    return {ok: false, error: 'offline'};
+  }
+  let d;
+  try { d = await r.json(); } catch { return {ok: false, error: 'bad reply'}; }
+  // Retool has returned the workflow's answer as a list of rows, as columns, and as the
+  // bare object, depending on version. The workflow deliberately does not pick one
+  // (docs/RETOOL_SETUP.md), so unpick it here - same logic as ops/api_check.py unwrap().
+  for (let i = 0; i < 4; i++){
+    if (Array.isArray(d) && d.length) d = d[0];
+    else if (d && typeof d === 'object' && 'result' in d && !('ok' in d)) d = d.result;
+    else break;
+  }
+  return (d && typeof d === 'object') ? d : {ok: false, error: 'bad reply'};
+}
+
+// ── the lock ────────────────────────────────────────────────────────
+// The site is private (decided 2026-09-16): nothing loads until a valid code unlocks
+// the site key. Without one, all a visitor gets is this screen - the data files
+// themselves are unreadable ciphertext.
+async function start(){
+  updateNotesCount();
+  let locked = true;
+  try {
+    const r = await fetch(`${BASE}/tiers/keyring.json`, {cache: 'no-cache'});
+    // Only a bundle built with no keys at all (a purely local install) has no keyring;
+    // ops/publish_to_pages.py refuses to upload such a bundle.
+    locked = r.status !== 404;
+  } catch { /* offline: treat as locked */ }
+  if (!locked){ revealApp(); updateAccessUI(); return boot(); }
+
+  const code = load(LS.code, '');
+  if (!code) return showLock();
+  let got = null;
+  try { got = await unlock(code); }
+  catch (e) {
+    trackErr({kind: 'unlock', msg: String(e.message).slice(0, 200)});
+    return showLock('Could not check your access code. Check your connection, then reload.', true);
+  }
+  if (!got){
+    // Revoked, or a code that was never published. Forget it.
+    save(LS.code, ''); save(LS.report, false);
+    return showLock('That access code is no longer active. Ask the office for a new one.');
+  }
+  access = got;
+  siteKey = await crypto.subtle.importKey('raw', b64d(got.site), 'AES-GCM', false, ['decrypt']);
+  revealApp();
+  updateAccessUI();
+  boot();
+}
+
+// Tabs, search, the access button and the report box start hidden in the HTML, so a
+// locked page never flashes the app's controls while the code is being checked.
+function revealApp(){
+  // One menu for everyone; the leadership entries show for tiers 1-3 (the database
+  // decides what each of them actually gets).
+  Skywalker.buildTray({nav: document.getElementById('tabs'), page: 'index',
+                       who: {tier: access ? access.tier : null}, active: trayOf(currentTab)});
+  updateNotesCount();
+  document.querySelector('nav').hidden = false;
+  document.getElementById('qwrap').hidden = false;
+  document.getElementById('aside').hidden = false;
+  document.getElementById('keybtn').hidden = false;
+  document.getElementById('reportbox').hidden = REPORTING_RETIRED;
+  raiseReportBox();
+}
+
+function showLock(message, keepCode){
+  hideSplash();
+  document.getElementById('exportfab').hidden = true;
+  document.querySelector('nav').hidden = true;
+  document.getElementById('qwrap').hidden = true;
+  document.getElementById('aside').hidden = true;
+  document.getElementById('keybtn').hidden = true;
+  const box = document.getElementById('reportbox');
+  try { box.hidePopover(); } catch {}
+  box.hidden = true;
+  document.getElementById('asof').textContent = 'private';
+  view.innerHTML = `
+    <div class="lock">
+      <div class="lock-logo">SKYWALKER</div>
+      <div class="bubble"><b>Skywalker is private.</b>Enter the personal access code the office
+        gave you. You only need to do this once on each device.</div>
+      <div class="slot" aria-hidden="true"><svg class="i"><use href="#i-lock"/></svg></div>
+      <div class="card">
+      <form id="lockform">
+        <!-- LETTING THE BROWSER REMEMBER THE CODE (asked for 2026-09-22).
+             A password manager only offers to save when it can see a credential, which
+             means three things together: a real <form>, a field of type="password" with
+             autocomplete="current-password", and a username field to file it under.
+             The username here is a fixed label rather than the person's name, which
+             nothing knows at this point - it becomes the entry's title in the manager.
+             It is off-screen rather than display:none, because a hidden field is
+             ignored by some managers. The field used to say autocomplete="off", which
+             told every browser NOT to offer. -->
+        <input type="text" name="username" value="Skywalker access code"
+               autocomplete="username" readonly tabindex="-1" aria-hidden="true"
+               style="position:absolute;opacity:0;width:1px;height:1px;pointer-events:none">
+        <input id="lockcode" class="codefield" type="password" name="code" autocomplete="current-password"
+               autocapitalize="characters" spellcheck="false" enterkeyhint="go"
+               placeholder="CARP-XXXX-XXXX-XXXX" aria-label="Access code">
+        <label class="meta" style="display:flex;gap:6px;align-items:center;justify-content:center;
+                                   cursor:pointer;font-size:13px">
+          <input type="checkbox" id="lockshow" style="width:auto;margin:0"> Show the code
+        </label>
+        <button class="btn primary">Unlock</button>
+        <div id="lockmsg" class="meta" style="display:block;min-height:1.5em">${esc(message || '')}</div>
+      </form>
+      </div>
+    </div>`;
+  const form = document.getElementById('lockform');
+  form.onsubmit = async ev => {
+    ev.preventDefault();
+    const code = document.getElementById('lockcode').value;
+    const msg = document.getElementById('lockmsg');
+    if (!normCode(code)){ msg.textContent = 'Type your access code.'; return; }
+    msg.textContent = 'Checking…';
+    let got = null;
+    try { got = await unlock(code); }
+    catch { msg.textContent = 'Could not check the code right now. Check your connection and try again.'; return; }
+    if (!got){
+      msg.textContent = 'That code was not recognised. A new code starts working after the next update.';
+      return;
+    }
+    save(LS.code, normCode(code));
+    // Ask the browser to remember it. Chrome and Edge offer on this call; Firefox and
+    // Safari decide for themselves from the form above, which is why both exist. It is
+    // only ever an OFFER - the person says yes or no, and nothing is stored by us.
+    try {
+      if (window.PasswordCredential && navigator.credentials){
+        await navigator.credentials.store(new window.PasswordCredential({
+          id: 'Skywalker access code', password: normCode(code), name: 'Skywalker'}));
+      }
+    } catch { /* declined, unsupported, or an insecure context: never fatal */ }
+    location.reload();
+  };
+  document.getElementById('lockshow').onchange = ev => {
+    document.getElementById('lockcode').type = ev.target.checked ? 'text' : 'password';
+  };
+  // Enter (or "Go" on a phone keyboard) submits. Browsers do this for a form with a
+  // button on their own, but not every one does it reliably, so ask for it explicitly.
+  document.getElementById('lockcode').addEventListener('keydown', ev => {
+    if (ev.key === 'Enter'){ ev.preventDefault(); form.requestSubmit(); }
+  });
+  if (!keepCode) document.getElementById('lockcode').focus();
+}
+
+async function askForCode(){
+  if (!access) return;
+  if (!confirm(`Sign out of Skywalker on this device? You will need your access code to get back in.`)) return;
+  save(LS.code, ''); save(LS.report, false);
+  location.reload();
+}
+
+// ── the report box ──────────────────────────────────────────────────
+const reportChk = document.getElementById('reportchk');
+const reportOn = () => !REPORTING_RETIRED && !!(access && load(LS.report, false));
+function setReport(on){
+  const was = load(LS.report, false);
+  save(LS.report, !!on);
+  // Ticking starts a NEW period: only notes written from now on are sent. The id keeps
+  // periods apart on the server, so re-ticking can never disturb what was already filed.
+  if (on && !was){ save(LS.period, {id: newId(), since: new Date().toISOString()}); save(LS.sent, ''); }
+  updateAccessUI();
+  refreshAnnot();
+  if (on) scheduleReport();
+}
+reportChk.onchange = () => {
+  if (reportChk.checked && !access){
+    reportChk.checked = false;
+    askForCode();
+    return;
+  }
+  setReport(reportChk.checked);
+};
+function updateAccessUI(){
+  const btn = document.getElementById('keybtn');
+  btn.textContent = access ? `Tier ${access.tier}` : 'Access code';
+  btn.classList.toggle('on', !!access);
+  const box = document.getElementById('reportbox');
+  reportChk.checked = reportOn();
+  box.classList.toggle('on', reportOn());
+  box.classList.toggle('off-code', !access);
+  box.title = access ? 'When ticked, notes you write from now on are sent to leadership'
+                     : 'Needs a personal access code';
+}
+document.getElementById('keybtn').onclick = askForCode;
+document.getElementById('exportfab').onclick = () => exportAnnotations();
+
+// Keep the box above everything, including an open detail dialog. The top layer stacks
+// in the order things enter it, so the box is re-entered after every dialog opens.
+// Browsers without popover support simply show it as an ordinary fixed element.
+function raiseReportBox(){
+  const box = document.getElementById('reportbox');
+  if (REPORTING_RETIRED || !box.showPopover) return;
+  try { if (box.matches(':popover-open')) box.hidePopover(); box.showPopover(); } catch {}
+}
+{
+  const dialog = document.getElementById('detail');
+  const open = dialog.showModal.bind(dialog);
+  dialog.showModal = () => { open(); raiseReportBox(); };
+}
+raiseReportBox();
+
+function inPeriod(n){
+  const p = load(LS.period, null);
+  return !!(reportOn() && p && (n.at || '') >= p.since);
+}
+function sendable(n){
+  // Tier 1-2 "only me" is truly private: never sent, ticked or not.
+  return inPeriod(n) && !((n.aud || 'me') === 'me' && access.tier <= 2);
+}
+function reportedPill(n){
+  return access && sendable(n) ? ' <span class="pill ok">Reported</span>' : '';
+}
+
+function deviceId(){
+  let d = load(LS.device, '');
+  if (!d){ d = newId(); save(LS.device, d); }
+  return d;
+}
+function reportPayload(){
+  const p = load(LS.period, null);
+  if (!reportOn() || !p) return null;
+  const notes = [];
+  for (const a of Object.values(annot))
+    for (const n of a.notes)
+      if (sendable(n)) notes.push({id: n.id, type: a.type, key: a.key, label: a.label,
+                                   body: n.body, at: n.at, aud: n.aud || 'me'});
+  // Every report carries ALL of this period's notes, not just the newest: a deleted note
+  // is then simply absent, and a report that got lost is repaired by the next one.
+  return {format: 'skywalker-report/1', v: access.verifier, device: deviceId(),
+          period: p.id, notes};
+}
+
+let inboxUrl, reportTimer = null;
+async function sendReport(final){
+  const body = reportPayload();
+  if (!body) return;
+  const fp = await sha256hex(JSON.stringify(body));
+  const last = load(LS.sent, '');
+  // Nothing new since the last report, or a period with nothing in it yet: skip. Each
+  // request is a Retool Workflow run against a monthly allowance.
+  if (fp === last || (!body.notes.length && !last)) return;
+  if (inboxUrl === undefined){
+    // Sealed like every other data file, so the webhook address is private too.
+    try { inboxUrl = (await getJSON('tiers/inbox.json')).url || null; } catch { inboxUrl = null; }
+  }
+  if (!inboxUrl) return;
+  const json = JSON.stringify(body);
+  try {
+    // no-cors + text/plain is the one cross-site POST a browser sends without asking the
+    // server first, and keepalive lets it finish while the tab closes. The price is an
+    // unreadable reply — which is why every report is complete rather than incremental.
+    await fetch(inboxUrl, {method: 'POST', mode: 'no-cors', keepalive: final && json.length < 60000,
+                           headers: {'Content-Type': 'text/plain'}, body: json});
+    save(LS.sent, fp);
+  } catch (e) {
+    trackErr({kind: 'report', msg: String(e.message).slice(0, 200)});
+  }
+}
+function scheduleReport(){
+  if (!reportOn()) return;
+  clearTimeout(reportTimer);
+  // Several notes in a row become one request.
+  reportTimer = setTimeout(() => sendReport(false), 20000);
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden' && reportOn()){ clearTimeout(reportTimer); sendReport(true); }
+});
+
+// ── shared notes, shown under the reader's own ──────────────────────
+function sharedItemHTML(i){
+  return `<div class="shared"><div class="meta">
+      <span class="pill">${esc(cap(i.k))}</span>${i.by ? `<span>${esc(i.by)}</span>` : ''}
+      ${i.d ? `<span>${esc(i.d)}</span>` : ''}<span>Seen by ${esc(i.a)}</span></div>
+    ${i.x ? `<div><b>${esc(i.x)}</b></div>` : ''}<div class="stext">${esc(i.t || '')}</div></div>`;
+}
+function sharedHTML(ekey, ownNotes){
+  if (!access) return '';
+  const mine = new Set((ownNotes || []).map(n => n.id));
+  const items = (access.items[ekey] || []).filter(i => !(i.n && mine.has(i.n)));
+  if (!items.length) return '';
+  return `<div style="margin-top:10px"><b>Shared with you (${items.length})</b>
+    ${items.map(sharedItemHTML).join('')}</div>`;
+}
+// The "Shared with Tier N" box was taken off the Notes tab on 2026-09-30 at the office's
+// request. Notes shared on an item still appear when that item is opened; the few
+// general notes (shared with no item) are listed plainly here when there are any.
+function generalSharedHTML(){
+  if (!access) return '';
+  const items = access.items.general || [];
+  return items.length ? `<div class="card"><b>Shared with you</b>${items.map(sharedItemHTML).join('')}</div>` : '';
+}
+
+start();
+</script>
+</body>
+</html>
